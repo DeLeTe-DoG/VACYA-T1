@@ -38,7 +38,7 @@
             </div>
           </div>
         </div>
-        <MainChart />
+        <MainChart v-if="sites && activeSite" :chartData="sites.find(site => site.id == activeSite).webSiteData" />
       </div>
     </div>
     <div class="column-wrapper">
@@ -47,7 +47,7 @@
           <span>
             <h2 class="window__title">Отображаемые сайты</h2>
             <p class="window__subtitle">
-              Выберите сайт, график которого хотите увидеть
+              Выберите сайт, данные которого хотите увидеть
             </p>
           </span>
 
@@ -73,10 +73,17 @@
           </main-button>
         </div>
         <div class="window__body">
-          <div class="choice-row" v-for="site in sites">
-            <div class="choice-row__header">
+          <div
+            class="choice-row"
+            v-for="site in sites"
+            :class="site.id == activeSite ? 'active' : ''"
+          >
+            <div class="choice-row__header" @click="handleActiveSite(site.id)">
               <div class="choice-row__wrapper">
-                <button class="choice-row__open-btn">
+                <button
+                  class="choice-row__open-btn"
+                  :class="site.id == activeSite ? 'active' : ''"
+                >
                   <svg
                     width="14"
                     height="8"
@@ -118,7 +125,7 @@
                 </svg>
               </button>
             </div>
-            <div class="choice-row__body">
+            <div class="choice-row__body" v-if="site.id == activeSite">
               <div class="choice-row__header">
                 <h5>тесты API</h5>
                 <main-button class="small-btn">Добавить</main-button>
@@ -129,11 +136,11 @@
       </div>
     </div>
   </div>
-  <AddScenariosModal />
+  <AddScenariosModal v-if="addTestModal" />
 </template>
 
 <script>
-import { mapActions, mapState } from "vuex/dist/vuex.cjs.js";
+import { mapActions, mapMutations, mapState } from "vuex/dist/vuex.cjs.js";
 import MainChart from "../components/layouts/main-page/MainChart.vue";
 import AddScenariosModal from "../components/layouts/modals/AddScenariosModal.vue";
 
@@ -144,6 +151,9 @@ export default {
       token: null,
       user_data: null,
       userData: null,
+      addTestModal: false,
+      activeSite: null,
+      // chartData: null,
       metrics: [
         // {
         //   id: 1,
@@ -190,17 +200,56 @@ export default {
   computed: {
     ...mapState({
       sites: (state) => state.sites.sites,
+      // activeSite: (state) => state.sites.activeSite,
     }),
+    // chartData() {
+    //   if(this.sites) {
+    //     return this.sites.find(site => site.id == this.$route.query.project).webSiteData
+    //   }
+    // }
   },
   methods: {
     ...mapActions({
       getSites: "sites/getSites",
     }),
+    ...mapMutations({
+      setActiveSite: 'sites/setActiveSite',
+    }),
+    handleActiveSite(site_id) {
+      const currentPath = this.$route.path
+      this.$router.push({path: currentPath, query: { project: site_id }})
+    },
+    async dashboardInit() {
+      try {
+        await this.getSites()
+        this.$nextTick
+      } finally {
+        this.chartInit(() => {
+          setTimeout(this.chartInit(), 1000)
+          
+        })
+      }
+    },
+    chartInit() {
+      
+    }
   },
   mounted() {
+    // this.dashboardInit()
     this.token = localStorage.getItem("token");
     this.getSites();
+    this.activeSite = this.$route.query.project
+    // this.chartInit()
   },
+  watch: {
+    '$route.query.project': {
+      immadiate: true,
+      handler(newVal) {
+      this.activeSite = newVal
+      this.getSites()
+      this.chartData = this.sites.find(site => site.id == newVal).webSiteData
+    }},
+  }
 };
 </script>
 
@@ -263,30 +312,38 @@ export default {
   aspect-ratio: 1/1;
 }
 .choice-row {
+  padding: 5px;
   padding-top: 20px;
   border-top: 1px solid #f5f5f5;
-  &__header{
+  border-radius: 8px;
+  &.active {
+    background-color: #f5f5f5;
+  }
+  &__header {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     font-size: 20px;
   }
-  &__wrapper{
+  &__wrapper {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 10px;
   }
-  &__open-btn{
+  &__open-btn {
     border: none;
     background: transparent;
     outline: none;
-    &.active svg{
+    svg{
+      transition: all 0.2s ease-in;
+    }
+    &.active svg {
       transform: rotate(180deg);
     }
   }
-  &__body{
+  &__body {
     padding-top: 20px;
   }
 }

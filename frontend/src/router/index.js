@@ -9,6 +9,15 @@ const routes = [
         name: 'home',
         path: '/',
         meta: {needProjectCheck: true},
+        component: () => import('../views/HomeView.vue'),
+        beforeEnter: (to, from, next) => {
+            guard(to, from, next)
+        }
+    },
+    {
+        name: 'dashboard',
+        path: '/dashboard',
+        meta: {needProjectCheck: true},
         component: () => import('../views/MainView.vue'),
         beforeEnter: (to, from, next) => {
             guard(to, from, next)

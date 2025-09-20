@@ -24,7 +24,7 @@ export default {
   <PageHeader v-if="$route.path != '/auth'" />
 
   <div class="main_with_sidebar">
-    <div v-if="$route.path != '/auth'">
+    <div v-if="$route.path != '/auth' && $route.path != '/'">
       <Sidebar v-if="visibleMenu" />
     </div>
     <div class="app-main">

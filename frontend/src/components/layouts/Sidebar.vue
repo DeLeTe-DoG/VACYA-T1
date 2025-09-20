@@ -11,7 +11,7 @@
           class="pen__heading"
           @click="
             () => {
-              $router.push(button.href);
+              $router.push({path: button.href, query: {project: $route.query.project}});
               // currentPath = button.href;
             }
           "
@@ -122,19 +122,19 @@ export default {
         {
           id: 1,
           title: "Дашборд",
-          href: "/",
+          href: `/dashboard/`,
           family: "dashboard",
         },
         {
           id: 2,
           title: "Планы и отчёты",
-          href: "/tests", //тут по базовому адресу будет история проверок
+          href: "/tests/", //тут по базовому адресу будет история проверок
           family: "tests",
           children: [
             {
               id: 21,
               title: "Добавить отчёт",
-              href: "/tests/plan-test",
+              href: "/tests/plan-test/",
               family: "tests",
             },
             // {
