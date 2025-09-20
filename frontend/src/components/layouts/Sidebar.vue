@@ -1,7 +1,7 @@
 <template v-if="visibleMenu">
   <div class="sidebar">
     <div class="sidebar__wrapper">
-      <h4 class="text">ПРОДАЖИ</h4>
+      <h4 class="text">ПРОВЕРКИ</h4>
       <div
         class="pen"
         :class="{ active: button.href === currentPath }"
