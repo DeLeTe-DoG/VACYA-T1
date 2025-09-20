@@ -12,13 +12,42 @@
             <main-button @click="$router.push({ path: '/tests/plan-test' })" >Добавить отчёт</main-button>
         </form>
         <div class="List">
-            <h4>Статус</h4>
-            <h4>Статус</h4>
-            <h4>Статус</h4>
-            <h4>Статус</h4>
-            <h4>Статус</h4>
-            <h4>Статус</h4>
-            <h4>Статус</h4>
+            <div class="error-history">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>СТАТУС</th>
+                            <th>ДАТА И ВРЕМЯ</th>
+                            <th>ИСПОЛНИТЕЛЬ</th>
+                            <th>РЕЗУЛЬТАТ</th>
+                            <th>КОММЕНТАРИЙ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="status success">Успешно пройдена</td>
+                            <td>20.09.2025 13:19:10</td>
+                            <td>Аяз Кайзер</td>
+                            <td>Запрос выполнен</td>
+                            <td>Надо починить фронт...</td>
+                        </tr>
+                        <tr>
+                            <td class="status error">Запланировано</td>
+                            <td>20.09.2025 13:20:15</td>
+                            <td>Азат Сагдетдинов</td>
+                            <td>Страница не найдена</td>
+                            <td>Надо поменять дизайн...</td>
+                        </tr>
+                        <tr>
+                            <td class="status mega-error">Просрочено</td>
+                            <td>20.09.2025 13:20:15</td>
+                            <td>Владислав Григорьев</td>
+                            <td>Запрос выполнен</td>
+                            <td>Надо починить бэк...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
       </div>
     </div>
@@ -53,6 +82,77 @@ import { sitesModule } from '../store/sitesModule';
 </script>
 
 <style lang="scss" scoped>
+.error-history {
+    // max-width: 100%;
+    // margin: 20px auto;
+    // font-family: Arial, sans-serif;
+    width: 100%;
+//   max-height: 400px; /* задаем максимальную высоту */
+//   overflow: auto; /* добавляем прокрутку при необходимости */
+//   border: 1px solid #ccc;
+  position: relative;
+}
+
+table {
+    max-width: 130%;
+    border-collapse: collapse;
+    margin-bottom: 20px;    
+    position: relative;
+}
+
+th, td {
+    padding: 12px;
+    text-align: left;
+    // border: 1px solid #ddd;
+    word-break: break-word; /* переносим слова при необходимости */
+    white-space: nowrap; /* предотвращаем перенос текста */
+    overflow: hidden; /* обрезаем текст */
+    text-overflow: ellipsis; /* добавляем многоточие при обрезке */
+    max-width: 400px; /* равное распределение ширины */
+
+}
+
+
+th {
+    // background-color: #f2f2f2;   
+    font-weight: bold;
+    color: #969696;
+    font-size: large;
+}
+
+// tr:nth-child(even) {
+//     background-color: #f9f9f9;
+// }
+
+.status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+.success {
+    background-color: #d4edda;
+    color: #198754;
+}
+
+.error {
+    background-color: #f8e5d7;
+    color: #72551c;
+}
+.mega-error{
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+@media (max-width: 768px) {
+    th, td {
+        padding: 8px;
+        font-size: 14px;
+    }
+}
+
+
+
+
     .form{
         display: flex;
         flex-direction: row;

@@ -17,7 +17,7 @@
               } else {
                 $router.push({path: button.href, query: {project: 1}})
               }
-                // currentPath = button.href;
+                currentPath = button.href;
             }
           "
         >
@@ -133,21 +133,21 @@ export default {
         {
           id: 2,
           title: "Планы и отчёты",
-          // href: "/tests/", //тут по базовому адресу будет история проверок
+          href: "/tests/", //тут по базовому адресу будет история проверок
           family: "tests",
           children: [
             {
               id: 21,
               title: "Добавить отчёт",
-              // href: "/tests/plan-test/",
+              href: "/tests/plan-test/",
               family: "tests",
             },
-            // {
-            //   id: 22,
-            //   title: "Отчет о проверке",
-            //   href: "/tests/add-report",
-            //   family: "tests",
-            // },
+            {
+              id: 22,
+              title: "Отчет о проверке",
+              href: "/tests/add-report",
+              family: "tests",
+            },
           ],
         },
         // {
