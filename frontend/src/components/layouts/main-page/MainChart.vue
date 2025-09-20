@@ -35,7 +35,7 @@ export default {
             lineStyle: {
               color: "#DAA011",
             },
-            name: "API errors",
+            name: "Server errors",
             // data: [100, 50, 40, 110],
             data: [],
             // smooth: true,
@@ -54,7 +54,7 @@ export default {
             lineStyle: {
               color: "#F62E2E",
             },
-            name: "Server errors",
+            name: "API errors",
             data: [],
             // smooth: true,
           },
