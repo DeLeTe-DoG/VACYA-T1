@@ -66,7 +66,7 @@ public class MonitoringBackgroundService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var users = _userService.GetAll();
+            var users = _userService.GetAll().ToList();
 
             foreach (var user in users)
             {
@@ -76,6 +76,7 @@ public class MonitoringBackgroundService : BackgroundService
                     {
                         LastChecked = DateTime.UtcNow
                     };
+
                     // 1. Проверка корректности URL
                     if (!Uri.TryCreate(site.URL, UriKind.Absolute, out var uri))
                     {
@@ -83,7 +84,8 @@ public class MonitoringBackgroundService : BackgroundService
                         data.ErrorMessage = "Некорректный URL";
                         data.Id = $"INVALID_URL/BACKGROUND/{Guid.NewGuid()}";
                         site.IsAvailable = false;
-                        site.WebSiteData = site.WebSiteData.Append(data).ToList();
+
+                        site.WebSiteData.Add(data);
                         site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
                         continue;
                     }
@@ -100,7 +102,7 @@ public class MonitoringBackgroundService : BackgroundService
                             site.IsAvailable = false;
                             site.DNS = "DNS не найден";
 
-                            site.WebSiteData = site.WebSiteData.Append(data).ToList();
+                            site.WebSiteData.Add(data);
                             site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
                             continue;
                         }
@@ -116,7 +118,7 @@ public class MonitoringBackgroundService : BackgroundService
                             site.IsAvailable = false;
                             site.SSL = "Сертификат недействителен";
 
-                            site.WebSiteData = site.WebSiteData.Append(data).ToList();
+                            site.WebSiteData.Add(data);
                             site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
                             continue;
                         }
@@ -126,24 +128,24 @@ public class MonitoringBackgroundService : BackgroundService
                         var stopwatch = Stopwatch.StartNew();
                         var response = await client.GetAsync(uri, stoppingToken);
                         stopwatch.Stop();
+
                         site.ResponseTime = $"{stopwatch.ElapsedMilliseconds} ms";
 
                         int status = (int)response.StatusCode;
                         data.StatusCode = status;
                         data.Id = $"{status}/BACKGROUND/{Guid.NewGuid()}";
 
-                        // Проверка статуса HTTP
                         if (status >= 200 && status < 400)
                         {
                             site.IsAvailable = true;
                         }
-                        else 
+                        else
                         {
                             site.IsAvailable = false;
                             data.ErrorMessage = response.ReasonPhrase ?? $"HTTP Error {status}";
                         }
 
-                        // 5. Проверка содержимого (если задано expectedContent)
+                        // 5. Проверка содержимого (если задан ExpectedContent)
                         if (!string.IsNullOrWhiteSpace(site.ExpectedContent))
                         {
                             try
@@ -174,28 +176,27 @@ public class MonitoringBackgroundService : BackgroundService
                         site.IsAvailable = false;
                     }
 
-                    foreach (var scenario in site.TestScenarios)
+                    // 6. Запуск тестовых сценариев
+                    foreach (var scenario in site.TestScenarios?.ToList() ?? Enumerable.Empty<TestScenarioDTO>())
                     {
-                        if (scenario == null)
-                        {
-                            continue;
-                        }
                         var result = await _testService.RunScenarioAsync(scenario);
-                        if (result.ErrorMessage == "" || result.ErrorMessage == null)
+                        if (!string.IsNullOrEmpty(result.ErrorMessage))
                         {
-                            continue;
+                            site.TestsData.Add(result);
+                            site.TotalErrors++;
                         }
-                        site.TestsData.Add(result);
-                        if (!string.IsNullOrEmpty(result.ErrorMessage)) site.TotalErrors++;
                     }
 
-                    site.WebSiteData = site.WebSiteData.Append(data).ToList();
+                    // Добавляем запись о проверке
+                    site.WebSiteData.Add(data);
                     site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
 
                     await Task.Delay(500, stoppingToken);
                 }
             }
+
             await Task.Delay(5000, stoppingToken);
         }
     }
+
 }
