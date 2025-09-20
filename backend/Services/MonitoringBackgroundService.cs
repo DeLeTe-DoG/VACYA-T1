@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -9,23 +8,18 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Net.Http;
-
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
-
 using backend.Entities;
-using backend.Services;
 using backend.Data;
+using backend.Services;
 
 public class MonitoringBackgroundService : BackgroundService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IServiceScopeFactory _scopeFactory;
 
-    public MonitoringBackgroundService(
-        IHttpClientFactory httpClientFactory,
-        IServiceScopeFactory scopeFactory)
+    public MonitoringBackgroundService(IHttpClientFactory httpClientFactory, IServiceScopeFactory scopeFactory)
     {
         _httpClientFactory = httpClientFactory;
         _scopeFactory = scopeFactory;
@@ -35,8 +29,7 @@ public class MonitoringBackgroundService : BackgroundService
     {
         try
         {
-            var entry = Dns.GetHostEntry(host);
-            return entry.AddressList.Length > 0;
+            return Dns.GetHostEntry(host).AddressList.Length > 0;
         }
         catch
         {
@@ -75,7 +68,6 @@ public class MonitoringBackgroundService : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             using var scope = _scopeFactory.CreateScope();
-
             var _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var _testService = scope.ServiceProvider.GetRequiredService<TestScenarioService>();
 
@@ -90,21 +82,29 @@ public class MonitoringBackgroundService : BackgroundService
 
             foreach (var user in users)
             {
-                foreach (var site in user.Sites)
+                foreach (var site in user.Sites.ToList()) // ToList() защитит от изменений во время итерации
                 {
+                    // Проверка, что сайт ещё существует в БД
+                    var dbSite = await _db.WebSites
+                        .Include(s => s.WebSiteData)
+                        .Include(s => s.TestsData)
+                        .FirstOrDefaultAsync(s => s.Id == site.Id, stoppingToken);
+
+                    if (dbSite == null) continue; // сайт удалён, пропускаем
+
                     var data = new WebSiteData
                     {
                         Id = Guid.NewGuid().ToString(),
                         LastChecked = DateTime.UtcNow,
-                        WebSiteId = site.Id
+                        WebSiteId = dbSite.Id
                     };
 
                     // 1. Проверка корректности URL
-                    if (!Uri.TryCreate(site.URL, UriKind.Absolute, out var uri))
+                    if (!Uri.TryCreate(dbSite.URL, UriKind.Absolute, out var uri))
                     {
                         data.StatusCode = 0;
                         data.ErrorMessage = "Некорректный URL";
-                        site.IsAvailable = false;
+                        dbSite.IsAvailable = false;
 
                         _db.WebSiteData.Add(data);
                         await _db.SaveChangesAsync(stoppingToken);
@@ -114,19 +114,18 @@ public class MonitoringBackgroundService : BackgroundService
                     try
                     {
                         // 2. Проверка DNS
-                        bool dnsOK = CheckDNS(uri.Host);
-                        if (!dnsOK)
+                        if (!CheckDNS(uri.Host))
                         {
                             data.StatusCode = 0;
                             data.ErrorMessage = "DNS не найден";
-                            site.IsAvailable = false;
-                            site.DNS = "DNS не найден";
+                            dbSite.IsAvailable = false;
+                            dbSite.DNS = "DNS не найден";
 
                             _db.WebSiteData.Add(data);
                             await _db.SaveChangesAsync(stoppingToken);
                             continue;
                         }
-                        site.DNS = "OK";
+                        dbSite.DNS = "OK";
 
                         // 3. Проверка SSL
                         bool sslOk = uri.Scheme == Uri.UriSchemeHttps ? CheckSslCertificate(uri.Host) : true;
@@ -134,51 +133,43 @@ public class MonitoringBackgroundService : BackgroundService
                         {
                             data.StatusCode = 0;
                             data.ErrorMessage = "SSL сертификат недействителен";
-                            site.IsAvailable = false;
-                            site.SSL = "Сертификат недействителен";
+                            dbSite.IsAvailable = false;
+                            dbSite.SSL = "Сертификат недействителен";
 
                             _db.WebSiteData.Add(data);
                             await _db.SaveChangesAsync(stoppingToken);
                             continue;
                         }
-                        site.SSL = "OK";
+                        dbSite.SSL = "OK";
 
-                        // 4. HTTP-запрос с замером времени
+                        // 4. HTTP-запрос
                         var stopwatch = Stopwatch.StartNew();
                         var response = await client.GetAsync(uri, stoppingToken);
                         stopwatch.Stop();
 
-                        site.ResponseTime = $"{stopwatch.ElapsedMilliseconds} ms";
+                        dbSite.ResponseTime = $"{stopwatch.ElapsedMilliseconds} ms";
+                        data.StatusCode = (int)response.StatusCode;
 
-                        int status = (int)response.StatusCode;
-                        data.StatusCode = status;
-
-                        if (status >= 200 && status < 400)
-                            site.IsAvailable = true;
+                        if (response.IsSuccessStatusCode)
+                        {
+                            dbSite.IsAvailable = true;
+                        }
                         else
                         {
-                            site.IsAvailable = false;
-                            data.ErrorMessage = response.ReasonPhrase ?? $"HTTP Error {status}";
+                            dbSite.IsAvailable = false;
+                            data.ErrorMessage = response.ReasonPhrase ?? $"HTTP Error {data.StatusCode}";
                         }
 
-                        // 5. Проверка содержимого (если задан ExpectedContent)
-                        if (!string.IsNullOrWhiteSpace(site.ExpectedContent))
+                        // 5. Проверка содержимого
+                        if (!string.IsNullOrWhiteSpace(dbSite.ExpectedContent))
                         {
-                            try
-                            {
-                                var bytes = await response.Content.ReadAsByteArrayAsync(stoppingToken);
-                                var content = Encoding.UTF8.GetString(bytes);
+                            var bytes = await response.Content.ReadAsByteArrayAsync(stoppingToken);
+                            var content = Encoding.UTF8.GetString(bytes);
 
-                                if (!content.Contains(site.ExpectedContent, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    data.ErrorMessage = "Ожидаемый контент не найден";
-                                    site.IsAvailable = false;
-                                }
-                            }
-                            catch (Exception ex)
+                            if (!content.Contains(dbSite.ExpectedContent, StringComparison.OrdinalIgnoreCase))
                             {
-                                data.ErrorMessage = $"Ошибка при проверке контента: {ex.Message}";
-                                site.IsAvailable = false;
+                                data.ErrorMessage = "Ожидаемый контент не найден";
+                                dbSite.IsAvailable = false;
                             }
                         }
                     }
@@ -186,26 +177,26 @@ public class MonitoringBackgroundService : BackgroundService
                     {
                         data.StatusCode = 0;
                         data.ErrorMessage = ex.Message;
-                        site.IsAvailable = false;
+                        dbSite.IsAvailable = false;
                     }
 
                     // Сохраняем проверку сайта
                     _db.WebSiteData.Add(data);
-                    site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
+                    dbSite.TotalErrors = dbSite.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
                     await _db.SaveChangesAsync(stoppingToken);
 
                     // 6. Запуск тестовых сценариев
-                    foreach (var scenarioEntity in site.TestScenarios ?? Enumerable.Empty<TestScenario>())
+                    foreach (var scenario in dbSite.TestScenarios ?? Enumerable.Empty<TestScenario>())
                     {
                         var scenarioDto = new backend.Models.TestScenarioDTO
                         {
-                            Name = scenarioEntity.Name,
-                            Url = scenarioEntity.Url,
-                            HttpMethod = scenarioEntity.HttpMethod,
-                            Body = scenarioEntity.Body,
-                            ExpectedContent = scenarioEntity.ExpectedContent,
-                            CheckJson = scenarioEntity.CheckJson,
-                            CheckXml = scenarioEntity.CheckXml
+                            Name = scenario.Name,
+                            Url = scenario.Url,
+                            HttpMethod = scenario.HttpMethod,
+                            Body = scenario.Body,
+                            ExpectedContent = scenario.ExpectedContent,
+                            CheckJson = scenario.CheckJson,
+                            CheckXml = scenario.CheckXml
                         };
 
                         var resultDto = await _testService.RunScenarioAsync(scenarioDto);
@@ -218,10 +209,10 @@ public class MonitoringBackgroundService : BackgroundService
                             ResponseTime = resultDto.ResponseTime,
                             ErrorMessage = resultDto.ErrorMessage,
                             LastChecked = DateTime.UtcNow,
-                            WebSiteId = site.Id
+                            WebSiteId = dbSite.Id
                         };
 
-                        site.TestsData.Add(resultEntity);
+                        dbSite.TestsData.Add(resultEntity);
                         _db.ScenarioResults.Add(resultEntity);
                     }
 

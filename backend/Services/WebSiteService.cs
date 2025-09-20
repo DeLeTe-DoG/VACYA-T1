@@ -1,90 +1,248 @@
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading.Tasks;
+using System.Text.Json;
+using backend.Data;
+using backend.Entities;
 using backend.Models;
-using backend.Services;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.EntityFrameworkCore;
 
 public class WebsiteService
 {
-    private readonly UserService _userService;
-    private readonly List<WebSiteDTO> _websites;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly AppDbContext _db;
 
-    public WebsiteService(UserService userService, IHttpClientFactory httpClientFactory)
+    public WebsiteService(AppDbContext db)
     {
-        _userService = userService;
-        _websites = new List<WebSiteDTO>();
-        _httpClientFactory = httpClientFactory;
+        _db = db;
     }
 
-    public List<WebSiteDTO> GetAll()
+    // Получить все сайты пользователя
+    public async Task<List<WebSiteDTO>> GetAllAsync(string userName)
     {
-        return _websites;
-    }
+        var user = await _db.Users
+            .Include(u => u.Sites)
+                .ThenInclude(s => s.TestScenarios)
+            .Include(u => u.Sites)
+                .ThenInclude(s => s.WebSiteData)
+            .Include(u => u.Sites)
+                .ThenInclude(s => s.TestsData)
+            .FirstOrDefaultAsync(u => u.Name == userName);
 
-    public (bool Success, string Message, WebSiteDTO?) Add(
-        string url, string userName, string name, string expectedContent)
-    {
-        var user = _userService.GetByName(userName);
+        if (user == null) return new List<WebSiteDTO>();
 
-        if (user.Sites.Any(s => s.URL == url))
-            return (false, $"Сайт с URL '{url}' уже существует", null);
-
-        if (user.Sites.Any(s => s.Name == name))
-            return (false, $"Сайт с именем '{name}' уже существует", null);
-        if (user == null)
-            return (false, "Пользователь не найден", null);
-
-        var site = new WebSiteDTO
+        return user.Sites.Select(s => new WebSiteDTO
         {
-            Id = user.Sites.Count + 1,
+            Id = s.Id,
+            Name = s.Name,
+            URL = s.URL,
+            ExpectedContent = s.ExpectedContent,
+            TotalErrors = s.WebSiteData.Count(d => !string.IsNullOrEmpty(d.ErrorMessage)),
+            WebSiteData = s.WebSiteData.Select(d => new WebSiteDataDTO
+            {
+                Id = d.Id,
+                LastChecked = d.LastChecked,
+                StatusCode = d.StatusCode,
+                ErrorMessage = d.ErrorMessage
+            }).ToList(),
+            TestsData = s.TestsData.Select(t => new ScenarioResultDTO
+            {
+                Id = t.Id,
+                Name = t.Name,
+                StatusCode = t.StatusCode,
+                ResponseTime = t.ResponseTime,
+                ErrorMessage = t.ErrorMessage,
+                LastChecked = t.LastChecked
+            }).ToList(),
+            TestScenarios = s.TestScenarios.Select(t => new TestScenarioDTO
+            {
+                Name = t.Name,
+                Url = t.Url,
+                HttpMethod = t.HttpMethod,
+                Body = t.Body,
+                Headers = string.IsNullOrEmpty(t.HeadersJson)
+                    ? new Dictionary<string, string>()
+                    : JsonSerializer.Deserialize<Dictionary<string, string>>(t.HeadersJson),
+                ExpectedContent = t.ExpectedContent,
+                CheckJson = t.CheckJson,
+                CheckXml = t.CheckXml
+            }).ToList()
+        }).ToList();
+    }
+
+    // Добавить сайт
+    public async Task<(bool Success, string Message, WebSiteDTO?)> AddAsync(string url, string userName, string name, string expectedContent)
+    {
+        var user = await _db.Users
+            .Include(u => u.Sites)
+            .FirstOrDefaultAsync(u => u.Name == userName);
+
+        if (user == null) return (false, "Пользователь не найден", null);
+        if (user.Sites.Any(s => s.URL == url)) return (false, $"Сайт с URL '{url}' уже существует", null);
+        if (user.Sites.Any(s => s.Name == name)) return (false, $"Сайт с именем '{name}' уже существует", null);
+
+        var site = new WebSite
+        {
             Name = name,
             URL = url,
             ExpectedContent = expectedContent,
-            TotalErrors = 0,
-            WebSiteData = new(),
-            TestsData = new()
+            WebSiteData = new List<WebSiteData>(),
+            TestsData = new List<ScenarioResult>(),
+            TestScenarios = new List<TestScenario>()
         };
 
         user.Sites.Add(site);
-        return (true, "Сайт успешно добавлен", site);
+        await _db.SaveChangesAsync();
+
+        var siteDto = new WebSiteDTO
+        {
+            Id = site.Id,
+            Name = site.Name,
+            URL = site.URL,
+            ExpectedContent = site.ExpectedContent,
+            TotalErrors = 0,
+            WebSiteData = new List<WebSiteDataDTO>(),
+            TestsData = new List<ScenarioResultDTO>(),
+            TestScenarios = new List<TestScenarioDTO>()
+        };
+
+        return (true, "Сайт успешно добавлен", siteDto);
     }
 
-    public (bool Success, string Message, TestScenarioDTO?) AddScenario(
-        string userName, string name, bool checkXml, string httpMethod, string url, 
-        string? body, Dictionary<string, string>? headers, string? expectedContent, bool checkJson
+    // Удаление сайта пользователя
+    public async Task DeleteSiteAsync(string userName, int siteId)
+    {
+        var user = await _db.Users
+            .Include(u => u.Sites)
+                .ThenInclude(s => s.TestScenarios)
+            .Include(u => u.Sites)
+                .ThenInclude(s => s.WebSiteData)
+            .Include(u => u.Sites)
+                .ThenInclude(s => s.TestsData)
+            .FirstOrDefaultAsync(u => u.Name == userName);
+
+        if (user == null) throw new Exception("Пользователь не найден");
+
+        var site = user.Sites.FirstOrDefault(s => s.Id == siteId);
+        if (site == null) throw new Exception("Сайт не найден");
+
+        _db.WebSites.Remove(site);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<(bool Success, string Message)> DeleteScenarioAsync(string userName, string siteName, string scenarioName)
+    {
+        var user = await _db.Users
+            .Include(u => u.Sites)
+            .ThenInclude(s => s.TestScenarios)
+            .FirstOrDefaultAsync(u => u.Name == userName);
+
+        if (user == null)
+            return (false, "Пользователь не найден");
+
+        var site = user.Sites.FirstOrDefault(s => s.Name == siteName);
+        if (site == null)
+            return (false, "Сайт не найден");
+
+        var scenario = site.TestScenarios.FirstOrDefault(sc => sc.Name == scenarioName);
+        if (scenario == null)
+            return (false, "Сценарий не найден");
+
+        _db.TestScenarios.Remove(scenario);
+        await _db.SaveChangesAsync();
+
+        return (true, "Сценарий удалён");
+    }
+
+    public async Task<(bool Success, string Message, TestScenarioDTO?)> AddScenarioAsync(
+        string userName,
+        string siteName,
+        string name,
+        bool checkXml,
+        string httpMethod,
+        string? body,
+        Dictionary<string, string>? headers,
+        string? expectedContent,
+        bool checkJson
     )
     {
-        var user = _userService.GetByName(userName);
+        // Ищем пользователя
+        var user = await _db.Users
+            .Include(u => u.Sites)
+            .FirstOrDefaultAsync(u => u.Name == userName);
+
         if (user == null)
             return (false, "Пользователь не найден", null);
-    
-        // Ищем сайт, к которому добавляем сценарий
-        var site = user.Sites.FirstOrDefault(s => s.URL == url);
+
+        // Ищем сайт пользователя
+        var site = user.Sites.FirstOrDefault(s => s.Name == siteName);
         if (site == null)
-            return (false, $"Сайт с URL '{url}' не найден у пользователя", null);
-    
-        if (site.TestScenarios.Any(s => s.Name == name))
-            return (false, $"Тестовый сценарий с именем '{name}' уже существует", null);
-    
-        var scenario = new TestScenarioDTO
+            return (false, "Сайт не найден", null);
+
+        // Сериализация Headers в JSON
+        var headersJson = headers != null
+            ? JsonSerializer.Serialize(headers)
+            : null;
+
+        var scenario = new TestScenario
         {
             Name = name,
-            Url = url,
+            CheckXml = checkXml,
             HttpMethod = httpMethod,
             Body = body,
-            Headers = headers ?? new(),
+            HeadersJson = headersJson,
             ExpectedContent = expectedContent,
             CheckJson = checkJson,
-            CheckXml = checkXml
+            WebSiteId = site.Id
         };
-    
-        site.TestScenarios.Add(scenario);
-    
-        return (true, "Тестовый сценарий успешно добавлен", scenario);
+
+        _db.TestScenarios.Add(scenario);
+        await _db.SaveChangesAsync();
+
+        // Маппинг обратно в DTO
+        var scenarioDto = new TestScenarioDTO
+        {
+            SiteId = site.Id.ToString(),
+            Name = scenario.Name,
+            CheckXml = scenario.CheckXml,
+            HttpMethod = scenario.HttpMethod,
+            Body = scenario.Body,
+            Headers = !string.IsNullOrEmpty(scenario.HeadersJson)
+                ? JsonSerializer.Deserialize<Dictionary<string, string>>(scenario.HeadersJson)
+                : new Dictionary<string, string>(),
+            ExpectedContent = scenario.ExpectedContent,
+            CheckJson = scenario.CheckJson
+        };
+
+        return (true, "Сценарий добавлен", scenarioDto);
     }
 
+    public async Task<List<WebSiteDTO>> FilterByDateAsync(int userId, DateTime dateFrom, DateTime dateTo)
+    {
+        // приводим к UTC
+        var dateFromStart = DateTime.SpecifyKind(dateFrom.Date, DateTimeKind.Utc);
+        var dateToEnd = DateTime.SpecifyKind(dateTo.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+
+        var sites = await _db.WebSites
+            .Where(s => s.UserId == userId)
+            .Include(s => s.WebSiteData
+                .Where(d => d.LastChecked >= dateFromStart && d.LastChecked <= dateToEnd))
+            .ToListAsync();
+
+        var result = sites
+            .Where(s => s.WebSiteData.Any())
+            .Select(s => new WebSiteDTO
+            {
+                Id = s.Id,
+                Name = s.Name,
+                URL = s.URL,
+                TotalErrors = s.WebSiteData.Count(d => !string.IsNullOrEmpty(d.ErrorMessage)),
+                WebSiteData = s.WebSiteData.Select(d => new WebSiteDataDTO
+                {
+                    Id = d.Id,
+                    StatusCode = d.StatusCode,
+                    ErrorMessage = d.ErrorMessage,
+                    LastChecked = d.LastChecked
+                }).ToList()
+            })
+            .ToList();
+
+        return result;
+    }
 }

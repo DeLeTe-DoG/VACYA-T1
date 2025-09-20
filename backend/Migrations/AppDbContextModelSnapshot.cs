@@ -75,6 +75,9 @@ namespace backend.Migrations
                     b.Property<string>("ExpectedContent")
                         .HasColumnType("text");
 
+                    b.Property<string>("HeadersJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("HttpMethod")
                         .IsRequired()
                         .HasColumnType("text");

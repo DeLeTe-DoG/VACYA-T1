@@ -1,151 +1,159 @@
-using Microsoft.AspNetCore.Mvc;
 using backend.Interfaces;
 using backend.JWT;
 using backend.Models;
 using Microsoft.AspNetCore.Authorization;
-using backend.Services;
-using System.Globalization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace backend.Controllers;
 
 [ApiController]
-[Route("api/user")]
+[Route("api/[controller]")]
 public class UserController : ControllerBase
 {
-    private readonly IUser _UserService;
-    private readonly WebsiteService _WebSiteService;
-    private readonly FilterService _filter;
+    private readonly IUser _userService;
+    private readonly WebsiteService _websiteService;
 
-    public UserController(IUser user, WebsiteService WebSiteService, FilterService filter)
+    public UserController(IUser userService, WebsiteService websiteService)
     {
-        _UserService = user;
-        _WebSiteService = WebSiteService;
-        _filter = filter;
+        _userService = userService;
+        _websiteService = websiteService;
     }
 
     [HttpPost("register")]
-    public IActionResult Register([FromBody] RegisterDTO user)
+    public async Task<IActionResult> Register([FromBody] RegisterDTO dto)
     {
-
-        if (string.IsNullOrWhiteSpace(user.Name) || string.IsNullOrWhiteSpace(user.Password) || string.IsNullOrWhiteSpace(user.Email))
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+        try
         {
-            return BadRequest("Имя и пароль обязательны");
-        }
+            await _userService.RegisterAsync(dto);
+            var user = new UserDTO
+            {
+                Name = dto.Name,
+                Email = dto.Email
+            };
+            var token = JWTHelper.GenerateToken(user);
 
-        var existingUser = _UserService.GetByName(user.Name);
-        if (existingUser != null)
+            return Ok(new
+            {
+                Token = token,
+                User = user
+            });
+        }
+        catch (System.Exception ex)
         {
-            return Conflict("Имя занято");
+            return BadRequest(new { Message = ex.Message });
         }
-
-        _UserService.Register(user);
-        var token = JWTHelper.GenerateToken(new UserDTO { Name = user.Name });
-        return Ok(new { token });
     }
 
     [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginDTO user)
+    public async Task<IActionResult> Login([FromBody] LoginDTO dto)
     {
-        if (string.IsNullOrWhiteSpace(user.Name) || string.IsNullOrWhiteSpace(user.Password))
-        {
-            return BadRequest("Имя и пароль обязательны");
-        }
-        var existingUser = _UserService.GetByName(user.Name);
-        if (existingUser == null)
-        {
-            return Unauthorized("Пользователь не зарегистрирован");
-        }
-        if (!BCrypt.Net.BCrypt.Verify(user.Password, existingUser.PasswordHash))
-        {
-            return Unauthorized("Имя или парол неправильны");
-        }
-        var token = JWTHelper.GenerateToken(existingUser);
-        return Ok(new { token });
-    }
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
 
-    [HttpGet("me")]
-    [Authorize]
-    public IActionResult GetCurrentUser()
-    {
-        // Получаем имя пользователя из токена
-        var userName = User.Identity.Name;
-        var user = _UserService.GetByName(userName);
+        var user = await _userService.LogInAsync(dto.Name, dto.Password);
 
         if (user == null)
-        {
-            return NotFound("Пользователь не найден");
-        }
-        Console.WriteLine(user.Name);
-        return Ok(user);
-    }
-
-    public class DateFilterRequest
-    {
-        public string DateFrom { get; set; }
-        public string DateTo { get; set; }
-    }
-    [HttpPost("me/dateFilter")]
-    [Authorize]
-    public IActionResult GetFilteredSites([FromBody] DateFilterRequest request)
-    {
-        var dateFromStr = request.DateFrom;
-        var dateToStr = request.DateTo;
-
-        if (string.IsNullOrWhiteSpace(dateFromStr) || string.IsNullOrWhiteSpace(dateToStr))
-        {
-            return BadRequest("Дата обязательна");
-        }
-        if (User.Identity.Name == null) return NotFound("Введите имя пользователя");
+            return Unauthorized(new { Message = "Неверное имя пользователя или пароль" });
         
-        var userName = User.Identity.Name;
-        var user = _UserService.GetByName(userName);
+        var token = JWTHelper.GenerateToken(user);
 
-        if (user == null)
+        return Ok(new
         {
-            return NotFound("Пользователь не найден");
-        }
-        if (user.Sites == null || user.Sites.Count == 0)
-        {
-            return NotFound("Пожалуйста, добавьте сайт для мониторинга");
-        }
-
-        var dateFrom = DateTime.ParseExact(dateFromStr, "yyyy-MM-dd", CultureInfo.InvariantCulture);
-        var dateTo = DateTime.ParseExact(dateToStr, "yyyy-MM-dd", CultureInfo.InvariantCulture);
-
-        var filteredSites = _filter.DateFilter(user, dateFrom, dateTo);
-
-        return Ok(filteredSites);
-    }
-    [HttpPost("me/addScenario")]
-    [Authorize]
-    public ActionResult<TestScenarioDTO> AddScenario([FromBody] TestScenarioDTO scenario)
-    {
-        var userName = User.Identity.Name;
-        if (string.IsNullOrEmpty(userName))
-            return NotFound("Имя пользователя не найдено в токене.");
-        var data = _WebSiteService.AddScenario(userName,scenario.Name, scenario.CheckXml, scenario.HttpMethod, scenario.Url, scenario.Body, scenario.Headers, scenario.ExpectedContent, scenario.CheckJson);
-        if (!data.Success)
-        {
-            if (data.Message.Contains("уже существует"))
-                return Conflict(data.Message); // 409
-            return BadRequest(data.Message); // 400
-        }
-        return Ok(scenario);
+            Token = token,
+            User = user
+        });
     }
 
-    [HttpPost("me")]
+    // Получить сайты пользователя
+    [HttpGet("{userName}/sites")]
     [Authorize]
-    public ActionResult<WebSiteDTO> Add([FromBody] WebSiteDTO site)
+    public async Task<IActionResult> GetSites(string userName)
     {
-        
-        var userName = User.Identity.Name;
-        if (string.IsNullOrEmpty(userName))
-            return NotFound("Имя пользователя не найдено в токене.");
-        var data = _WebSiteService.Add(site.URL, userName, site.Name, site.ExpectedContent);
-        if (!data.Success)
-        {
-            if (data.Message.Contains("уже существует"))
-                return Conflict(data.Message); // 409
-            return BadRequest(data.Message); // 400
-        }
-        return Ok(site);
+        var sites = await _websiteService.GetAllAsync(userName);
+        return Ok(sites);
+    }
+
+    // Добавить сайт
+    [HttpPost("{userName}/sites/add")]
+    [Authorize]
+    public async Task<IActionResult> AddSite(string userName, [FromBody] WebSiteDTO dto)
+    {
+        var result = await _websiteService.AddAsync(dto.URL, userName, dto.Name, dto.ExpectedContent);
+        if (!result.Success) return BadRequest(result.Message);
+        return Ok(result.Item3);
+    }
+
+    // Добавить тестовый сценарий
+    [HttpPost("{userName}/sites/{siteName}/scenarios/add")]
+    [Authorize]
+    public async Task<IActionResult> AddScenario(
+        string userName,
+        string siteName,
+        [FromBody] TestScenarioDTO dto)
+    {
+        var result = await _websiteService.AddScenarioAsync(
+            userName,
+            siteName,            // теперь строка
+            dto.Name,
+            dto.CheckXml,
+            dto.HttpMethod,
+            dto.Body,
+            dto.Headers,
+            dto.ExpectedContent,
+            dto.CheckJson
+        );
+
+        if (!result.Success) 
+            return BadRequest(result.Message);
+
+        return Ok(result.Item3); 
+    }
+
+    // Фильтрация данных по дате
+    [HttpPost("{userId}/filter")]
+    public async Task<IActionResult> FilterByDate(int userId, [FromBody] DateFilterRequest request)
+    {
+        if (request.DateFrom > request.DateTo)
+            return BadRequest(new { Success = false, Message = "Дата начала больше даты конца" });
+
+        var result = await _websiteService.FilterByDateAsync(userId, request.DateFrom, request.DateTo);
+
+        if (result == null || !result.Any())
+            return NotFound(new { Success = false, Message = "Нет данных за указанный период" });
+
+        return Ok(new { Success = true, Data = result });
+    }
+
+    // Удалить пользователя
+    [HttpDelete("{userName}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteUser(string userName)
+    {
+        await _userService.DeleteAsync(userName);
+        return Ok(new { Success = true, Message = "Пользователь удалён" });
+    }
+
+    // Удалить сайт
+    [HttpDelete("{userName}/sites/{siteId}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteSite(string userName, int siteId)
+    {
+        await _websiteService.DeleteSiteAsync(userName, siteId);
+        return Ok(new { Success = true, Message = "Сайт удалён" });
+    }
+
+    // Удалить тестовый сценарий по имени сайта
+    [HttpDelete("{userName}/sites/{siteName}/scenarios/{scenarioName}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteScenario(string userName, string siteName, string scenarioName)
+    {
+        var result = await _websiteService.DeleteScenarioAsync(userName, siteName, scenarioName);
+    
+        if (!result.Success) 
+            return BadRequest(result.Message);
+    
+        return Ok(new { Success = true, Message = "Сценарий удалён" });
     }
 }

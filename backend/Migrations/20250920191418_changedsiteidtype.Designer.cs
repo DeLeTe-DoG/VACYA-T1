@@ -12,8 +12,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250920160306_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20250920191418_changedsiteidtype")]
+    partial class changedsiteidtype
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -76,6 +76,9 @@ namespace backend.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("ExpectedContent")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HeadersJson")
                         .HasColumnType("text");
 
                     b.Property<string>("HttpMethod")

@@ -23,12 +23,15 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddSingleton<UserService>();
-builder.Services.AddSingleton<IUser>(sp => sp.GetRequiredService<UserService>());
-builder.Services.AddSingleton(new List<WebSiteDTO>());
-builder.Services.AddSingleton<WebsiteService>();
-builder.Services.AddSingleton<FilterService>();
+//builder.Services.AddSingleton<UserService>();
+//builder.Services.AddSingleton<IUser>(sp => sp.GetRequiredService<UserService>());
+//builder.Services.AddSingleton(new List<WebSiteDTO>());
+//builder.Services.AddSingleton<WebsiteService>();
+//builder.Services.AddSingleton<FilterService>();
 
+builder.Services.AddScoped<IUser, UserService>();
+builder.Services.AddScoped<WebsiteService>();
+builder.Services.AddScoped<FilterService>();
 builder.Services.AddScoped<TestScenarioService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>

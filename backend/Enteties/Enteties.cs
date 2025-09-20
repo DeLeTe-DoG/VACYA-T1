@@ -59,6 +59,7 @@ namespace backend.Entities
         public string? ExpectedContent { get; set; }
         public bool CheckJson { get; set; } = false;
         public bool CheckXml { get; set; } = false;
+        public string? HeadersJson { get; set; }
 
         public int WebSiteId { get; set; }
         public WebSite WebSite { get; set; }
