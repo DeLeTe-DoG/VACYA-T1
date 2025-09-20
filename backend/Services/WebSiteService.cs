@@ -182,6 +182,7 @@ public class WebsiteService
 
         var scenario = new TestScenario
         {
+            Url = site.URL,
             Name = name,
             CheckXml = checkXml,
             HttpMethod = httpMethod,
@@ -198,7 +199,7 @@ public class WebsiteService
         // Маппинг обратно в DTO
         var scenarioDto = new TestScenarioDTO
         {
-            SiteId = site.Id.ToString(),
+            //SiteId = site.Id.ToString(),
             Name = scenario.Name,
             CheckXml = scenario.CheckXml,
             HttpMethod = scenario.HttpMethod,

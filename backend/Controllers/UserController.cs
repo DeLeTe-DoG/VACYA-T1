@@ -95,7 +95,7 @@ public class UserController : ControllerBase
     {
         var result = await _websiteService.AddScenarioAsync(
             userName,
-            siteName,            // теперь строка
+            siteName, 
             dto.Name,
             dto.CheckXml,
             dto.HttpMethod,
