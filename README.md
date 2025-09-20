@@ -121,7 +121,7 @@ View And Check Your Apps
 
 ### 🔹 *Добавить сайт*
 **Метод:** `POST` \
-**API:** `/api/user/{userName}/sites`\
+**API:** `/api/user/{userName}/sites/add`\
 **Авторизация:** ✅ требуется JWT
 
 ### *Заголовки запроса*
@@ -338,7 +338,7 @@ View And Check Your Apps
 
 ### 🔹 *Удалить сценарий*
 **Метод:** `DELETE` \
-**API:** `/api/user/{userName}/sites/{siteId}`\
+**API:** `/api/user/{userName}/sites/{siteName}/scenarios/{scenarioName}`\
 **Авторизация:** ✅ требуется JWT
 
 ### *Заголовки запроса*
