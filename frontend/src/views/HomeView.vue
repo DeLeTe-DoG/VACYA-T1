@@ -11,7 +11,7 @@
         </button>
     </div>
     <div class="charts-wrapper">
-        <MainChart v-for="site in sites" />
+        <MainChart v-for="site in sites" :chartData="site.webSiteData" />
     </div>
 </template>
 

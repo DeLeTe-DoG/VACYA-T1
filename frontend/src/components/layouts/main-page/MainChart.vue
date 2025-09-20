@@ -1,6 +1,6 @@
 <template>
   <!-- <div class="chart-block"> -->
-  <v-chart :option="chartOptions" class="chart-block" />
+  <v-chart v-if="chartOptions.series[0].data.length != 0 || chartOptions.series[1].data.length != 0" :option="chartOptions" class="chart-block" />
   <!-- {{ chartData }} -->
   <!-- </div> -->
 </template>
@@ -55,7 +55,7 @@ export default {
               color: "#F62E2E",
             },
             name: "Server errors",
-            // data: [105, 52, 20, 78],
+            data: [],
             // smooth: true,
           },
         ],

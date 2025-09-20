@@ -6,36 +6,23 @@
       </div>
       <div class="window__body">
         <div class="metrics-cards">
-          <div class="metric" v-for="metric in metrics">
-            <!-- <did
-              class="metric__marker"
-              :style="{ backgroundColor: metric.indicator }"
-            ></did> -->
+          <div class="metric" v-if="sites && sites.find(site => site.id == activeSite).totalErrors">
             <div class="metric-wrapper">
-              <p class="metric__title">{{ metric.title }}</p>
-              <p class="metric__description">{{ metric.description }}</p>
+              <p class="metric__title">Общее кол-во ошибок</p>
+              <p class="metric__description">За последние 24 часа</p>
             </div>
-            <h2 v-if="metric.value" class="metric__value">
-              {{ metric.value }} {{ metric.measure }}
+            <h2 class="metric__value" >
+              {{ sites.find(site => site.id == activeSite).totalErrors }}
             </h2>
-            <div class="metric__list">
-              <ul v-if="metric.children">
-                <li v-for="child in metric.children">
-                  <div
-                    class="indicator"
-                    :style="{
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
-                      backgroundColor:
-                        child.code == 200 ? '#41C84A' : '#F62E2E',
-                    }"
-                  ></div>
-                  <p class="error__date">{{ child.date }}</p>
-                  <p class="error__msg">{{ child.message }}</p>
-                </li>
-              </ul>
+          </div>
+          <div class="metric" v-if="sites && sites.find(site => site.id == activeSite).responseTime">
+            <div class="metric-wrapper">
+              <p class="metric__title">Время отклика</p>
+              <p class="metric__description">Время преобразования доменного имени в IP-адрес через DNS</p>
             </div>
+            <h2 class="metric__value">
+              {{ sites.find(site => site.id == activeSite).responseTime }}
+            </h2>
           </div>
         </div>
         <MainChart v-if="sites && activeSite" :chartData="sites.find(site => site.id == activeSite).webSiteData" />
@@ -163,19 +150,19 @@ export default {
         //   measure: "ms",
         //   description: "Итоговое время загрузки страницы",
         // },
-        {
-          id: 1,
-          title: "Общее кол-во ошибок",
-          value: "10",
-          description: "За последние 24 часа",
-        },
-        {
-          id: 2,
-          title: "Время отклика",
-          value: "1000",
-          description:
-            "Время преобразования доменного имени в IP-адрес через DNS",
-        },
+        // {
+        //   id: 1,
+        //   title: "Общее кол-во ошибок",
+        //   value: null,
+        //   description: "За последние 24 часа",
+        // },
+        // {
+        //   id: 2,
+        //   title: "Время отклика",
+        //   value: "1000",
+        //   description:
+        //     "Время преобразования доменного имени в IP-адрес через DNS",
+        // },
         // {
         //   id: 3,
         //   title: "Работаспособность API",
@@ -219,35 +206,19 @@ export default {
       const currentPath = this.$route.path
       this.$router.push({path: currentPath, query: { project: site_id }})
     },
-    async dashboardInit() {
-      try {
-        await this.getSites()
-        this.$nextTick
-      } finally {
-        this.chartInit(() => {
-          setTimeout(this.chartInit(), 1000)
-          
-        })
-      }
-    },
-    chartInit() {
-      
-    }
   },
   mounted() {
-    // this.dashboardInit()
     this.token = localStorage.getItem("token");
     this.getSites();
     this.activeSite = this.$route.query.project
-    // this.chartInit()
   },
   watch: {
     '$route.query.project': {
       immadiate: true,
       handler(newVal) {
       this.activeSite = newVal
-      this.getSites()
-      this.chartData = this.sites.find(site => site.id == newVal).webSiteData
+      // this.getSites()
+      // this.chartData = this.sites.find(site => site.id == newVal).webSiteData
     }},
   }
 };
