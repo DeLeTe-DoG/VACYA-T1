@@ -1,21 +1,19 @@
 <template>
   <div class="profile">
     <h2>Мой профиль</h2>
-    
-    <div v-if="loading" class="loading">Загрузка...</div>
-    
-    <div v-else-if="user" class="user-info">
-      <div class="info-item">
+    <!-- {{ userData }} -->    
+    <div v-if="userData" class="user-info">
+      <div v-if="userData.name" class="info-item">
         <span class="label">Имя:</span>
-        <span class="value">{{ user.Name }}</span>
+        <span class="value">{{ userData.name }}</span>
       </div>
       
-      <div v-if="user.Email" class="info-item">
+      <div v-if="userData.email" class="info-item">
         <span class="label">Email:</span>
-        <span class="value">{{ user.Email }}</span>
+        <span class="value">{{ userData.email }}</span>
       </div>
       
-      <div v-if="user.loginTime" class="info-item">
+      <!-- <div v-if="user.loginTime" class="info-item">
         <span class="label">Вход выполнен:</span>
         <span class="value">{{ formatDate(user.loginTime) }}</span>
       </div>
@@ -23,7 +21,7 @@
       <div v-if="user.registrationTime" class="info-item">
         <span class="label">Зарегистрирован:</span>
         <span class="value">{{ formatDate(user.registrationTime) }}</span>
-      </div>
+      </div> -->
     </div>
     
     <div v-else class="no-data">
@@ -38,6 +36,7 @@
 </template>
 
 <script>
+import { mapActions, mapState } from 'vuex'
 export default {
   data() {
     return {
@@ -45,26 +44,34 @@ export default {
       loading: false
     };
   },
+  computed: {
+    ...mapState({
+      userData: state => state.auth.userData,
+    }),
+  },
   mounted() {
-    this.loadUserData();
+    // this.getUserData();
   },
   methods: {
-    loadUserData() {
-      try {
-        const userData = localStorage.getItem('user');
-        if (userData) {
-          this.user = JSON.parse(userData);
-          console.log('Данные пользователя:', this.user);
-        } else {
-          console.log('Данные не найдены в localStorage');
-        }
-      } catch (error) {
-        console.error('Ошибка загрузки данных:', error);
-      }
-    },
+    // ...mapActions({
+    //   getUserData: 'getUserData',
+    // }),
+    // loadUserData() {
+    //   try {
+    //     const userData = localStorage.getItem('user');
+    //     if (userData) {
+    //       this.user = JSON.parse(userData);
+    //       console.log('Данные пользователя:', this.user);
+    //     } else {
+    //       console.log('Данные не найдены в localStorage');
+    //     }
+    //   } catch (error) {
+    //     console.error('Ошибка загрузки данных:', error);
+    //   }
+    // },
     
     refreshData() {
-      this.loadUserData();
+      this.getUserData();
     },
     
     formatDate(dateString) {
@@ -72,7 +79,7 @@ export default {
     },
     
     handleLogout() {
-      localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
       localStorage.removeItem('user');
       this.$router.push('/auth');
     }

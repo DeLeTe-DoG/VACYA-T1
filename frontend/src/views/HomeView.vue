@@ -45,6 +45,7 @@
         mounted() {
             this.token = localStorage.getItem("token");
             this.getSites();
+            console.log(this.sites)
         },
     }
 </script>

@@ -6,26 +6,41 @@
       </div>
       <div class="window__body">
         <div class="metrics-cards" v-if="activeSite">
-          <div class="metric" v-if="sites && sites.find(site => site.id == activeSite).totalErrors">
+          <div
+            class="metric"
+            v-if="
+              sites && sites.find((site) => site.id == activeSite).totalErrors
+            "
+          >
             <div class="metric-wrapper">
               <p class="metric__title">Общее кол-во ошибок</p>
               <p class="metric__description">За последние 24 часа</p>
             </div>
-            <h2 class="metric__value" >
-              {{ sites.find(site => site.id == activeSite).totalErrors }}
+            <h2 class="metric__value">
+              {{ sites.find((site) => site.id == activeSite).totalErrors }}
             </h2>
           </div>
-          <div class="metric" v-if="sites && sites.find(site => site.id == activeSite).responseTime">
+          <div
+            class="metric"
+            v-if="
+              sites && sites.find((site) => site.id == activeSite).responseTime
+            "
+          >
             <div class="metric-wrapper">
               <p class="metric__title">Время отклика</p>
-              <p class="metric__description">Время преобразования доменного имени в IP-адрес через DNS</p>
+              <p class="metric__description">
+                Время преобразования доменного имени в IP-адрес через DNS
+              </p>
             </div>
             <h2 class="metric__value">
-              {{ sites.find(site => site.id == activeSite).responseTime }}
+              {{ sites.find((site) => site.id == activeSite).responseTime }}
             </h2>
           </div>
         </div>
-        <MainChart v-if="sites && activeSite" :chartData="sites.find(site => site.id == activeSite).webSiteData" />
+        <MainChart
+          v-if="sites && activeSite"
+          :chartData="sites.find((site) => site.id == activeSite).webSiteData"
+        />
       </div>
     </div>
     <div class="column-wrapper">
@@ -115,7 +130,7 @@
             <div class="choice-row__body" v-if="site.id == activeSite">
               <div class="choice-row__header">
                 <h5>Тесты API</h5>
-                <main-button class="small-btn">Добавить</main-button>
+                <main-button class="small-btn" @click="$refs.addTestModal.openModule()">Добавить</main-button>
               </div>
             </div>
           </div>
@@ -127,48 +142,46 @@
         <h2 class="window__title">История ошибок</h2>
       </div>
       <div class="window__body">
-                <div class="List">
-            <div class="error-history">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Тип проверки</th>
-                            <th>Статус</th>
-                            <th>Имя</th>
-                            <th>Дата и время</th>
-                            <th>URL-адрес</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Post</td>
-                            <td class="status success">Ошибок нет</td>
-                            <td>Аяз Кайзер</td>
-                            <td>20.09.2025 13:19:10</td>
-                            <td>/FrontSideMaster</td>
-                        </tr> 
-                        <tr>
-                            <td>Post-Get-Anal-Manal-Zaebal</td>
-                            <td class="status error">Ошибка 304</td>
-                            <td>Азат Сагдетдинов</td>
-                            <td>20.09.2025 13:20:15</td>
-                            <td>/IAmNotGood</td>
-                        </tr>
-                        <tr>
-                            <td>Get</td>
-                            <td class="status mega-error">Ошибка 404</td>
-                            <td>Владислав Григорьев</td>
-                            <td>20.09.2025 13:20:15</td>
-                            <td>/BackSideMaster</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="scroll-wrapper">
+          <table v-if="sites && activeSite">
+            <thead>
+              <tr>
+                <th>Тип проверки</th>
+                <th>Статус</th>
+                <th>Имя</th>
+                <th>Дата и время</th>
+                <th>URL-адрес</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="sites" v-for="error in sites.find(site => site.id == activeSite).webSiteData">
+                <td>Работаспособность сайта</td>
+                <td class="status success">{{ error.statusCode }}</td>
+                <td>{{ error.errorMessage }}</td>
+                <td>{{ error.lastChecked.split('T')[0] }} {{ error.lastChecked.split('T')[1].split('.')[0] }}</td>
+                <td>{{ sites.find(site => site.id == activeSite).url }}</td>
+              </tr>
+              <!-- <tr>
+                <td>Post-Get-Anal-Manal-Zaebal</td>
+                <td class="status error">Ошибка 304</td>
+                <td>Азат Сагдетдинов</td>
+                <td>20.09.2025 13:20:15</td>
+                <td>/IAmNotGood</td>
+              </tr>
+              <tr>
+                <td>Get</td>
+                <td class="status mega-error">Ошибка 404</td>
+                <td>Владислав Григорьев</td>
+                <td>20.09.2025 13:20:15</td>
+                <td>/BackSideMaster</td>
+              </tr> -->
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   </div>
-  <AddScenariosModal v-if="addTestModal" />
+  <AddScenariosModal ref="addTestModal" />
 </template>
 
 <script>
@@ -245,67 +258,67 @@ export default {
       getSites: "sites/getSites",
     }),
     ...mapMutations({
-      setActiveSite: 'sites/setActiveSite',
+      setActiveSite: "sites/setActiveSite",
     }),
     handleActiveSite(site_id) {
-      const currentPath = this.$route.path
-      this.$router.push({path: currentPath, query: { project: site_id }})
+      const currentPath = this.$route.path;
+      this.$router.push({ path: currentPath, query: { project: site_id } });
     },
   },
   mounted() {
     this.token = localStorage.getItem("token");
     this.getSites();
-    this.activeSite = this.$route.query.project
+    this.activeSite = this.$route.query.project;
   },
   watch: {
-    '$route.query.project': {
+    "$route.query.project": {
       immadiate: true,
       handler(newVal) {
-      this.activeSite = newVal
-      // this.getSites()
-      // this.chartData = this.sites.find(site => site.id == newVal).webSiteData
-    }},
-  }
+        this.activeSite = newVal;
+        // this.getSites()
+        // this.chartData = this.sites.find(site => site.id == newVal).webSiteData
+      },
+    },
+  },
 };
 </script>
 
 <style lang="scss" scoped>
 .error-history {
-    // max-width: 100%;
-    // margin: 20px auto;
-    // font-family: Arial, sans-serif;
-    width: 100%;
-//   max-height: 400px; /* задаем максимальную высоту */
-//   overflow: auto; /* добавляем прокрутку при необходимости */
-//   border: 1px solid #ccc;
+  // max-width: 100%;
+  // margin: 20px auto;
+  // font-family: Arial, sans-serif;
+  width: 100%;
+  //   max-height: 400px; /* задаем максимальную высоту */
+  //   overflow: auto; /* добавляем прокрутку при необходимости */
+  //   border: 1px solid #ccc;
   position: relative;
 }
 
 table {
-    max-width: 130%;
-    border-collapse: collapse;
-    margin-bottom: 20px;    
-    position: relative;
+  max-width: max-content;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  position: relative;
 }
 
-th, td {
-    padding: 12px;
-    text-align: left;
-    // border: 1px solid #ddd;
-    word-break: break-word; /* переносим слова при необходимости */
-    white-space: nowrap; /* предотвращаем перенос текста */
-    overflow: hidden; /* обрезаем текст */
-    text-overflow: ellipsis; /* добавляем многоточие при обрезке */
-    max-width: 400px; /* равное распределение ширины */
-
+th,
+td {
+  padding: 12px;
+  text-align: left;
+  // border: 1px solid #ddd;
+  word-break: break-word; /* переносим слова при необходимости */
+  white-space: nowrap; /* предотвращаем перенос текста */
+  overflow: hidden; /* обрезаем текст */
+  text-overflow: ellipsis; /* добавляем многоточие при обрезке */
+  max-width: 400px; /* равное распределение ширины */
 }
-
 
 th {
-    // background-color: #f2f2f2;   
-    font-weight: bold;
-    color: #969696;
-    font-size: large;
+  // background-color: #f2f2f2;
+  font-weight: bold;
+  color: #969696;
+  font-size: large;
 }
 
 // tr:nth-child(even) {
@@ -313,32 +326,31 @@ th {
 // }
 
 .status {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
 }
 .success {
-    background-color: #d4edda;
-    color: #198754;
+  background-color: #d4edda;
+  color: #198754;
 }
 
 .error {
-    background-color: #f8e5d7;
-    color: #72551c;
+  background-color: #f8e5d7;
+  color: #72551c;
 }
-.mega-error{
-    background-color: #f8d7da;
-    color: #721c24;
+.mega-error {
+  background-color: #f8d7da;
+  color: #721c24;
 }
 
 @media (max-width: 768px) {
-    th, td {
-        padding: 8px;
-        font-size: 14px;
-    }
+  th,
+  td {
+    padding: 8px;
+    font-size: 14px;
+  }
 }
-
-
 
 .metrics-cards {
   display: flex;
@@ -423,7 +435,7 @@ th {
     border: none;
     background: transparent;
     outline: none;
-    svg{
+    svg {
       transition: all 0.2s ease-in;
     }
     &.active svg {

@@ -34,3 +34,8 @@
         height: max-content;
     }
 }
+.scroll-wrapper{
+    width: 100%;
+    overflow-x: scroll;
+    max-height: 600px;
+}

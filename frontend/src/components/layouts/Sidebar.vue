@@ -132,20 +132,14 @@ export default {
         },
         {
           id: 2,
-          title: "Планы и отчёты",
+          title: "Проверки",
           href: "/tests/", //тут по базовому адресу будет история проверок
           family: "tests",
           children: [
             {
               id: 21,
-              title: "Добавить отчёт",
+              title: "Запланировать проверку",
               href: "/tests/plan-test/",
-              family: "tests",
-            },
-            {
-              id: 22,
-              title: "Отчет о проверке",
-              href: "/tests/add-report",
               family: "tests",
             },
           ],

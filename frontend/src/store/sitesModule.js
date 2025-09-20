@@ -28,15 +28,16 @@ export const sitesModule = {
     },
     actions: {
         getSites({state, commit}, data) {
-            axios
-                .get(`${api}/api/user/me`, {
+            console.log(JSON.parse(localStorage.getItem('userData')))
+            return axios
+                .get(`${api}/api/user/${JSON.parse(localStorage.getItem('userData')).name}/sites`, {
                     headers: {
                         Authorization: `Bearer ${localStorage.getItem('token')}`,
                     }
                 })
                 .then(response => {
-                    console.log(response.data.sites)
-                    commit('setSites', response.data.sites)
+                    console.log(response.data)
+                    commit('setSites', response.data)
                     if(!response.data) {
                         localStorage.removeItem('token')
                     }
@@ -44,8 +45,21 @@ export const sitesModule = {
         },
         addSite({state, commit}, data) {
             axios
-                .post(`${api}/api/user/me/`, data,
+                .post(`${api}/api/user/${JSON.parse(localStorage.getItem('userData')).name}/sites/add`, data,
                     {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('token')}`
+                    }
+                })
+                .then(response => {
+                    console.log(response)
+                })
+        },
+        addScenarios({state, commit}, data) {
+            const site_name = state.sites.find(site => site.id == data[0]).name
+            axios
+                .post(`${api}/api/user/${JSON.parse(localStorage.getItem('userData')).name}/sites/${site_name}/scenarios/add`, 
+                data[1], {
                     headers: {
                         Authorization: `Bearer ${localStorage.getItem('token')}`
                     }

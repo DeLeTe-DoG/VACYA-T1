@@ -13,14 +13,18 @@ export default createStore({
     },
     state: {
         visibleMenu: true,
+        userData: null,
     },
     mutations: {
         toggleMenu(state) {
             state.visibleMenu = !state.visibleMenu
         },
+        setUserData(state, data) {
+            state.userData = data
+        }
     },
     actions: {
-        getUserData() {
+        getUserData({state, commit}, data) {
             axios
                 .get(`${api}/api/user/me`, {
                     headers: {
@@ -30,6 +34,7 @@ export default createStore({
                 })
                 .then(response => {
                     console.log(response.data)
+                    commit('setUserData', response.data)
                     if(!response.data) {
                         localStorage.removeItem('token')
                     }

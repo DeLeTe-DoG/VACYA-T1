@@ -45,9 +45,8 @@ export const authModule = {
 
         localStorage.setItem("token", token);     // localStorage - типо кеширование данных, они хранятся ни в проекте, а в браузере ваще вроде, удобно если нужно запомнить какие-то данные чтоб затем обратиться к ним с любой точки проекта через localStorage.getItem('token)
 
-        // Сохраняем данные пользователя
-        // commit('setUserData', data)
-        localStorage.setItem('userData', response.data.user)
+        commit('setUserData', response.data.user)
+        localStorage.setItem('userData', JSON.stringify(response.data.user))
 
         router.replace({ path: "/" });      //этот метод заменяет адрес в урле на "/".    в .vue компонентах пишется по другому: this.$router.push('/')
       } catch (error) {
@@ -79,7 +78,7 @@ export const authModule = {
         console.log("Ответ сервера:", response.data);
 
         const token = response.data.token;
-        localStorage.setItem('userData', response.data.user)
+        localStorage.setItem('userData', JSON.stringify(response.data.user))
         if (!token) {
           throw new Error("Токен не получен от сервера");
         }
@@ -89,7 +88,7 @@ export const authModule = {
         console.log("Токен сохранен");
 
         // Сохраняем основные данные пользователя
-        // commit('setUserData', data)
+        commit('setUserData', response.data.user)
 
         // Перенаправляем в профиль
         router.replace({path: "/"});

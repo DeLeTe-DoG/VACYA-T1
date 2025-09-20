@@ -15,11 +15,7 @@
             </label>
             <label for="siteTiming">
                 Частота проверок сайта:
-                <select class="main-select" v-model="siteData.period" name="siteTiming" id="siteTiming">
-                    <option selected value="5">каждые 5 сек.</option>
-                    <option value="10">каждые 10 сек.</option>
-                    <option value="15">каждые 15 сек.</option>
-                </select>
+                <input class="main-input" type="number" name="sitePeriod" id="sitePeriod" v-model="siteData.period">
             </label>
         </form>
         <div class="buttons">
@@ -40,7 +36,7 @@ import { sitesModule } from '../store/sitesModule';
                 siteData: {
                     url: '',
                     name: '',
-                    period: null,
+                    expectedContent: 'OK'
                 }
             }
         },
