@@ -1,0 +1,13 @@
+@font-face {
+    font-family: 'Gilroy';
+    src: url('../fonts/Gilroy-UltraLight.woff2');
+}
+
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    color: #323232;
+    font-family: 'Gilroy' !important;
+    font-weight: 600;
+}

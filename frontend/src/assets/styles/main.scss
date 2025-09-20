@@ -1,0 +1,36 @@
+@import url(./reset.scss);
+@import url(./ui-styles.scss);
+
+.grid-structure{
+    display: grid;
+    grid-template-columns: 60% 1fr;
+    gap: 20px;
+}
+.window{
+    // margin: 20px;
+    padding: 25px 20px;
+    background-color: #fff;
+    border-radius: 16px;
+    width: 100%;
+    height: max-content;
+    &__header{
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        padding-bottom: 25px;
+        p{
+            color: #969696;
+            font-size: 14px;
+        }
+        h2{
+            font-size: 24px;
+            // padding-bottom: 25px;
+        }
+    }
+    &__body{
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        height: max-content;
+    }
+}
