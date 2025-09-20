@@ -36,5 +36,9 @@ namespace backend.Services
 
             return filteredSites;
         }
-    }
+    };
+
+    // public splitByDay() {
+
+    // }
 }

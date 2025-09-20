@@ -1,34 +1,37 @@
-using System.Net.Http;
-using Microsoft.Extensions.Hosting;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
-using backend.Models;
-using backend.Services;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
-using System.Diagnostics;
-using Microsoft.AspNetCore.Http.HttpResults;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Net.Http;
+
+using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
+
+using backend.Entities;
+using backend.Services;
+using backend.Data;
 
 public class MonitoringBackgroundService : BackgroundService
 {
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly UserService _userService;
-    private readonly TestScenarioService _testService;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public MonitoringBackgroundService(IHttpClientFactory httpClientFactory, UserService userService, TestScenarioService testScenario)
+    public MonitoringBackgroundService(
+        IHttpClientFactory httpClientFactory,
+        IServiceScopeFactory scopeFactory)
     {
         _httpClientFactory = httpClientFactory;
-        _userService = userService;
-        _testService = testScenario;
+        _scopeFactory = scopeFactory;
     }
 
-    private bool checkDNS(string host)
+    private bool CheckDNS(string host)
     {
         try
         {
@@ -40,6 +43,7 @@ public class MonitoringBackgroundService : BackgroundService
             return false;
         }
     }
+
     private bool CheckSslCertificate(string host)
     {
         try
@@ -49,9 +53,13 @@ public class MonitoringBackgroundService : BackgroundService
 
             using var sslStream = new SslStream(client.GetStream(), false,
                 new RemoteCertificateValidationCallback((sender, cert, chain, errors) => true));
+
             sslStream.AuthenticateAsClient(host);
 
-            var cert = new X509Certificate2(sslStream.RemoteCertificate);
+            var remoteCert = sslStream.RemoteCertificate;
+            if (remoteCert == null) return false;
+
+            var cert = new X509Certificate2(remoteCert);
             return DateTime.UtcNow >= cert.NotBefore && DateTime.UtcNow <= cert.NotAfter;
         }
         catch
@@ -66,15 +74,29 @@ public class MonitoringBackgroundService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var users = _userService.GetAll().ToList();
+            using var scope = _scopeFactory.CreateScope();
+
+            var _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var _testService = scope.ServiceProvider.GetRequiredService<TestScenarioService>();
+
+            var users = await _db.Users
+                .Include(u => u.Sites)
+                    .ThenInclude(s => s.TestScenarios)
+                .Include(u => u.Sites)
+                    .ThenInclude(s => s.WebSiteData)
+                .Include(u => u.Sites)
+                    .ThenInclude(s => s.TestsData)
+                .ToListAsync(stoppingToken);
 
             foreach (var user in users)
             {
-                foreach (var site in user.Sites.ToList())
+                foreach (var site in user.Sites)
                 {
-                    var data = new WebSiteDataDTO
+                    var data = new WebSiteData
                     {
-                        LastChecked = DateTime.UtcNow
+                        Id = Guid.NewGuid().ToString(),
+                        LastChecked = DateTime.UtcNow,
+                        WebSiteId = site.Id
                     };
 
                     // 1. Проверка корректности URL
@@ -82,49 +104,46 @@ public class MonitoringBackgroundService : BackgroundService
                     {
                         data.StatusCode = 0;
                         data.ErrorMessage = "Некорректный URL";
-                        data.Id = $"INVALID_URL/BACKGROUND/{Guid.NewGuid()}";
                         site.IsAvailable = false;
 
-                        site.WebSiteData.Add(data);
-                        site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
+                        _db.WebSiteData.Add(data);
+                        await _db.SaveChangesAsync(stoppingToken);
                         continue;
                     }
 
                     try
                     {
                         // 2. Проверка DNS
-                        bool dnsOK = checkDNS(uri.Host);
+                        bool dnsOK = CheckDNS(uri.Host);
                         if (!dnsOK)
                         {
                             data.StatusCode = 0;
                             data.ErrorMessage = "DNS не найден";
-                            data.Id = $"DNS_ERROR/BACKGROUND/{Guid.NewGuid()}";
                             site.IsAvailable = false;
                             site.DNS = "DNS не найден";
 
-                            site.WebSiteData.Add(data);
-                            site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
+                            _db.WebSiteData.Add(data);
+                            await _db.SaveChangesAsync(stoppingToken);
                             continue;
                         }
                         site.DNS = "OK";
 
-                        // 3. Проверка SSL (если HTTPS)
+                        // 3. Проверка SSL
                         bool sslOk = uri.Scheme == Uri.UriSchemeHttps ? CheckSslCertificate(uri.Host) : true;
                         if (!sslOk)
                         {
                             data.StatusCode = 0;
                             data.ErrorMessage = "SSL сертификат недействителен";
-                            data.Id = $"SSL_ERROR/BACKGROUND/{Guid.NewGuid()}";
                             site.IsAvailable = false;
                             site.SSL = "Сертификат недействителен";
 
-                            site.WebSiteData.Add(data);
-                            site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
+                            _db.WebSiteData.Add(data);
+                            await _db.SaveChangesAsync(stoppingToken);
                             continue;
                         }
                         site.SSL = "OK";
 
-                        // 4. HTTP-запрос с замером времени отклика
+                        // 4. HTTP-запрос с замером времени
                         var stopwatch = Stopwatch.StartNew();
                         var response = await client.GetAsync(uri, stoppingToken);
                         stopwatch.Stop();
@@ -133,12 +152,9 @@ public class MonitoringBackgroundService : BackgroundService
 
                         int status = (int)response.StatusCode;
                         data.StatusCode = status;
-                        data.Id = $"{status}/BACKGROUND/{Guid.NewGuid()}";
 
                         if (status >= 200 && status < 400)
-                        {
                             site.IsAvailable = true;
-                        }
                         else
                         {
                             site.IsAvailable = false;
@@ -156,14 +172,12 @@ public class MonitoringBackgroundService : BackgroundService
                                 if (!content.Contains(site.ExpectedContent, StringComparison.OrdinalIgnoreCase))
                                 {
                                     data.ErrorMessage = "Ожидаемый контент не найден";
-                                    data.Id = $"CONTENT_ERROR/BACKGROUND/{Guid.NewGuid()}";
                                     site.IsAvailable = false;
                                 }
                             }
                             catch (Exception ex)
                             {
                                 data.ErrorMessage = $"Ошибка при проверке контента: {ex.Message}";
-                                data.Id = $"CONTENT_EXCEPTION/BACKGROUND/{Guid.NewGuid()}";
                                 site.IsAvailable = false;
                             }
                         }
@@ -172,25 +186,46 @@ public class MonitoringBackgroundService : BackgroundService
                     {
                         data.StatusCode = 0;
                         data.ErrorMessage = ex.Message;
-                        data.Id = $"EXCEPTION/{Guid.NewGuid()}";
                         site.IsAvailable = false;
                     }
 
+                    // Сохраняем проверку сайта
+                    _db.WebSiteData.Add(data);
+                    site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
+                    await _db.SaveChangesAsync(stoppingToken);
+
                     // 6. Запуск тестовых сценариев
-                    foreach (var scenario in site.TestScenarios?.ToList() ?? Enumerable.Empty<TestScenarioDTO>())
+                    foreach (var scenarioEntity in site.TestScenarios ?? Enumerable.Empty<TestScenario>())
                     {
-                        var result = await _testService.RunScenarioAsync(scenario);
-                        if (!string.IsNullOrEmpty(result.ErrorMessage))
+                        var scenarioDto = new backend.Models.TestScenarioDTO
                         {
-                            site.TestsData.Add(result);
-                            site.TotalErrors++;
-                        }
+                            Name = scenarioEntity.Name,
+                            Url = scenarioEntity.Url,
+                            HttpMethod = scenarioEntity.HttpMethod,
+                            Body = scenarioEntity.Body,
+                            ExpectedContent = scenarioEntity.ExpectedContent,
+                            CheckJson = scenarioEntity.CheckJson,
+                            CheckXml = scenarioEntity.CheckXml
+                        };
+
+                        var resultDto = await _testService.RunScenarioAsync(scenarioDto);
+
+                        var resultEntity = new ScenarioResult
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Name = resultDto.Name,
+                            StatusCode = resultDto.StatusCode,
+                            ResponseTime = resultDto.ResponseTime,
+                            ErrorMessage = resultDto.ErrorMessage,
+                            LastChecked = DateTime.UtcNow,
+                            WebSiteId = site.Id
+                        };
+
+                        site.TestsData.Add(resultEntity);
+                        _db.ScenarioResults.Add(resultEntity);
                     }
 
-                    // Добавляем запись о проверке
-                    site.WebSiteData.Add(data);
-                    site.TotalErrors = site.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
-
+                    await _db.SaveChangesAsync(stoppingToken);
                     await Task.Delay(500, stoppingToken);
                 }
             }
@@ -198,5 +233,4 @@ public class MonitoringBackgroundService : BackgroundService
             await Task.Delay(5000, stoppingToken);
         }
     }
-
 }

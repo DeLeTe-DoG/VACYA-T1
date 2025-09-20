@@ -9,4 +9,5 @@ public class WebSiteDataDTO
     public int? StatusCode { get; set; }
     public string? ErrorMessage { get; set; }
     public DateTime LastChecked { get; set; }
+
 }
