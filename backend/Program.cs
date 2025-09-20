@@ -5,6 +5,10 @@ using backend.Services;
 using backend.Interfaces;
 using backend.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
+using ClickHouse.Client.ADO;
+using System.Web;
+using backend.Data; // Добавляем для Uri.EscapeDataString
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,14 +23,18 @@ builder.Services.AddCors(options =>
     });
 });
 
-
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<IUser>(sp => sp.GetRequiredService<UserService>());
 builder.Services.AddSingleton(new List<WebSiteDTO>());
 builder.Services.AddSingleton<WebsiteService>();
 builder.Services.AddSingleton<FilterService>();
-builder.Services.AddSingleton<TestScenarioService>();
 
+builder.Services.AddScoped<TestScenarioService>();
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
+    b => b.MigrationsAssembly("backend")    
+));
 
 builder.Services.AddControllers();
 
@@ -37,7 +45,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("super_secret_key_1234567890123456")), // Заменить на настоящий секретный ключ
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("super_secret_key_1234567890123456")),
             ValidateIssuer = false,
             ValidateAudience = false
         };
@@ -63,16 +71,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
-app.MapGet("/api/info/users", (UserService service) =>
-{
-    var users = service.GetAll();
-    return Results.Ok(users);
-});
-app.MapGet("/api/info/websites", (WebsiteService service) =>
-{
-    var websites = service.GetAll().Select(w => w.URL);
-    return Results.Ok(websites);
-});
 
 app.Run();
