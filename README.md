@@ -181,12 +181,12 @@ View And Check Your Apps
 ### *Тело запроса*
 ```json
 {
-  "name": "Check HomePage",
-  "httpMethod": "GET",
-  "body": null,
-  "checkXml": false, // только true/false
-  "checkJson": true, // только true/false
-  "expectedContent": "Welcome"
+  "name": "Login test",
+  "checkXml": false,
+  "httpMethod": "POST",
+  "body": "{ \"username\": \"admin\", \"password\": \"1234\" }",
+  "expectedContent": "Welcome, admin",
+  "checkJson": true
 }
 
 ```
