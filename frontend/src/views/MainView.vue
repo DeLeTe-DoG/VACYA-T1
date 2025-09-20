@@ -5,7 +5,7 @@
         <h2 class="window__title">Общие данные</h2>
       </div>
       <div class="window__body">
-        <div class="metrics-cards">
+        <div class="metrics-cards" v-if="activeSite">
           <div class="metric" v-if="sites && sites.find(site => site.id == activeSite).totalErrors">
             <div class="metric-wrapper">
               <p class="metric__title">Общее кол-во ошибок</p>
