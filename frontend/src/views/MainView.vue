@@ -5,40 +5,27 @@
         <h2 class="window__title">Общие данные</h2>
       </div>
       <div class="window__body">
-        <div class="metrics-cards">
-          <div class="metric" v-for="metric in metrics">
-            <!-- <did
-              class="metric__marker"
-              :style="{ backgroundColor: metric.indicator }"
-            ></did> -->
+        <div class="metrics-cards" v-if="activeSite">
+          <div class="metric" v-if="sites && sites.find(site => site.id == activeSite).totalErrors">
             <div class="metric-wrapper">
-              <p class="metric__title">{{ metric.title }}</p>
-              <p class="metric__description">{{ metric.description }}</p>
+              <p class="metric__title">Общее кол-во ошибок</p>
+              <p class="metric__description">За последние 24 часа</p>
             </div>
-            <h2 v-if="metric.value" class="metric__value">
-              {{ metric.value }} {{ metric.measure }}
+            <h2 class="metric__value" >
+              {{ sites.find(site => site.id == activeSite).totalErrors }}
             </h2>
-            <div class="metric__list">
-              <ul v-if="metric.children">
-                <li v-for="child in metric.children">
-                  <div
-                    class="indicator"
-                    :style="{
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
-                      backgroundColor:
-                        child.code == 200 ? '#41C84A' : '#F62E2E',
-                    }"
-                  ></div>
-                  <p class="error__date">{{ child.date }}</p>
-                  <p class="error__msg">{{ child.message }}</p>
-                </li>
-              </ul>
+          </div>
+          <div class="metric" v-if="sites && sites.find(site => site.id == activeSite).responseTime">
+            <div class="metric-wrapper">
+              <p class="metric__title">Время отклика</p>
+              <p class="metric__description">Время преобразования доменного имени в IP-адрес через DNS</p>
             </div>
+            <h2 class="metric__value">
+              {{ sites.find(site => site.id == activeSite).responseTime }}
+            </h2>
           </div>
         </div>
-        <MainChart />
+        <MainChart v-if="sites && activeSite" :chartData="sites.find(site => site.id == activeSite).webSiteData" />
       </div>
     </div>
     <div class="column-wrapper">
@@ -47,7 +34,7 @@
           <span>
             <h2 class="window__title">Отображаемые сайты</h2>
             <p class="window__subtitle">
-              Выберите сайт, график которого хотите увидеть
+              Выберите сайт, данные которого хотите увидеть
             </p>
           </span>
 
@@ -73,10 +60,17 @@
           </main-button>
         </div>
         <div class="window__body">
-          <div class="choice-row" v-for="site in sites">
-            <div class="choice-row__header">
+          <div
+            class="choice-row"
+            v-for="site in sites"
+            :class="site.id == activeSite ? 'active' : ''"
+          >
+            <div class="choice-row__header" @click="handleActiveSite(site.id)">
               <div class="choice-row__wrapper">
-                <button class="choice-row__open-btn">
+                <button
+                  class="choice-row__open-btn"
+                  :class="site.id == activeSite ? 'active' : ''"
+                >
                   <svg
                     width="14"
                     height="8"
@@ -118,7 +112,7 @@
                 </svg>
               </button>
             </div>
-            <div class="choice-row__body">
+            <div class="choice-row__body" v-if="site.id == activeSite">
               <div class="choice-row__header">
                 <h5>тесты API</h5>
                 <main-button class="small-btn">Добавить</main-button>
@@ -129,11 +123,11 @@
       </div>
     </div>
   </div>
-  <AddScenariosModal />
+  <AddScenariosModal v-if="addTestModal" />
 </template>
 
 <script>
-import { mapActions, mapState } from "vuex/dist/vuex.cjs.js";
+import { mapActions, mapMutations, mapState } from "vuex/dist/vuex.cjs.js";
 import MainChart from "../components/layouts/main-page/MainChart.vue";
 import AddScenariosModal from "../components/layouts/modals/AddScenariosModal.vue";
 
@@ -144,6 +138,9 @@ export default {
       token: null,
       user_data: null,
       userData: null,
+      addTestModal: false,
+      activeSite: null,
+      // chartData: null,
       metrics: [
         // {
         //   id: 1,
@@ -153,19 +150,19 @@ export default {
         //   measure: "ms",
         //   description: "Итоговое время загрузки страницы",
         // },
-        {
-          id: 1,
-          title: "Общее кол-во ошибок",
-          value: "10",
-          description: "За последние 24 часа",
-        },
-        {
-          id: 2,
-          title: "Время отклика",
-          value: "1000",
-          description:
-            "Время преобразования доменного имени в IP-адрес через DNS",
-        },
+        // {
+        //   id: 1,
+        //   title: "Общее кол-во ошибок",
+        //   value: null,
+        //   description: "За последние 24 часа",
+        // },
+        // {
+        //   id: 2,
+        //   title: "Время отклика",
+        //   value: "1000",
+        //   description:
+        //     "Время преобразования доменного имени в IP-адрес через DNS",
+        // },
         // {
         //   id: 3,
         //   title: "Работаспособность API",
@@ -190,17 +187,40 @@ export default {
   computed: {
     ...mapState({
       sites: (state) => state.sites.sites,
+      // activeSite: (state) => state.sites.activeSite,
     }),
+    // chartData() {
+    //   if(this.sites) {
+    //     return this.sites.find(site => site.id == this.$route.query.project).webSiteData
+    //   }
+    // }
   },
   methods: {
     ...mapActions({
       getSites: "sites/getSites",
     }),
+    ...mapMutations({
+      setActiveSite: 'sites/setActiveSite',
+    }),
+    handleActiveSite(site_id) {
+      const currentPath = this.$route.path
+      this.$router.push({path: currentPath, query: { project: site_id }})
+    },
   },
   mounted() {
     this.token = localStorage.getItem("token");
     this.getSites();
+    this.activeSite = this.$route.query.project
   },
+  watch: {
+    '$route.query.project': {
+      immadiate: true,
+      handler(newVal) {
+      this.activeSite = newVal
+      // this.getSites()
+      // this.chartData = this.sites.find(site => site.id == newVal).webSiteData
+    }},
+  }
 };
 </script>
 
@@ -263,30 +283,38 @@ export default {
   aspect-ratio: 1/1;
 }
 .choice-row {
+  padding: 5px;
   padding-top: 20px;
   border-top: 1px solid #f5f5f5;
-  &__header{
+  border-radius: 8px;
+  &.active {
+    background-color: #f5f5f5;
+  }
+  &__header {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     font-size: 20px;
   }
-  &__wrapper{
+  &__wrapper {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 10px;
   }
-  &__open-btn{
+  &__open-btn {
     border: none;
     background: transparent;
     outline: none;
-    &.active svg{
+    svg{
+      transition: all 0.2s ease-in;
+    }
+    &.active svg {
       transform: rotate(180deg);
     }
   }
-  &__body{
+  &__body {
     padding-top: 20px;
   }
 }

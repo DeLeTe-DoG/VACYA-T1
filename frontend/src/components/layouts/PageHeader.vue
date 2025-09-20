@@ -7,6 +7,7 @@
         class="btn_logo"
         :style="element2Style"
         src="/src/assets/images/icons/VACYA.svg"
+        @click="$router.push({path: '/'})"
       />
       <img
         @click.stop="toggleMenu"

@@ -1,7 +1,7 @@
 <template v-if="visibleMenu">
   <div class="sidebar">
     <div class="sidebar__wrapper">
-      <h4 class="text">ПРОДАЖИ</h4>
+      <h4 class="text">ПРОВЕРКИ</h4>
       <div
         class="pen"
         :class="{ active: button.href === currentPath }"
@@ -11,8 +11,13 @@
           class="pen__heading"
           @click="
             () => {
-              $router.push(button.href);
-              // currentPath = button.href;
+              const currentProject = $route.query.project
+              if (currentProject) {
+                $router.push({path: button.href, query: {project: currentProject}});
+              } else {
+                $router.push({path: button.href, query: {project: 1}})
+              }
+                // currentPath = button.href;
             }
           "
         >
@@ -122,19 +127,19 @@ export default {
         {
           id: 1,
           title: "Дашборд",
-          href: "/",
+          href: `/dashboard/`,
           family: "dashboard",
         },
         {
           id: 2,
           title: "Планы и отчёты",
-          href: "/tests", //тут по базовому адресу будет история проверок
+          // href: "/tests/", //тут по базовому адресу будет история проверок
           family: "tests",
           children: [
             {
               id: 21,
               title: "Добавить отчёт",
-              href: "/tests/plan-test",
+              // href: "/tests/plan-test/",
               family: "tests",
             },
             // {
