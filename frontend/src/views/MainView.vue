@@ -142,21 +142,21 @@
                     <tbody>
                         <tr>
                             <td>Post</td>
-                            <td class="status success">Успешно пройдена</td>
+                            <td class="status success">Ошибок нет</td>
                             <td>Аяз Кайзер</td>
                             <td>20.09.2025 13:19:10</td>
                             <td>/FrontSideMaster</td>
                         </tr> 
                         <tr>
                             <td>Post-Get-Anal-Manal-Zaebal</td>
-                            <td class="status error">Запланировано</td>
+                            <td class="status error">Ошибка 304</td>
                             <td>Азат Сагдетдинов</td>
                             <td>20.09.2025 13:20:15</td>
                             <td>/IAmNotGood</td>
                         </tr>
                         <tr>
                             <td>Get</td>
-                            <td class="status mega-error">Просрочено</td>
+                            <td class="status mega-error">Ошибка 404</td>
                             <td>Владислав Григорьев</td>
                             <td>20.09.2025 13:20:15</td>
                             <td>/BackSideMaster</td>
