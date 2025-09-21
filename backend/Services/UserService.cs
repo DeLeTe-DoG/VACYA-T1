@@ -22,6 +22,8 @@ namespace backend.Services
     {
       if (await _dbContext.Users.AnyAsync(u => u.Name == dto.Name))
         throw new System.Exception("Пользователь с таким именем уже существует");
+      if (await _dbContext.Users.AnyAsync(u => u.Email == dto.Email))
+        throw new System.Exception("Пользователь с такой почтой уже существует");
 
       var user = new User
       {
