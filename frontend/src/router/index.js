@@ -81,9 +81,9 @@ const guard = function (to, from, next) {
     //         router.push({path: '/add-site'})
     //     }
     // }, 2000)
-    if(JSON.parse(localStorage.getItem('userData')).sites.length == 0) {
-        router.push({ path: '/add-site' })
-    }
+    // if(JSON.parse(localStorage.getItem('userData')).sites.length == 0) {
+    //     router.push({ path: '/add-site' })
+    // }
     if(token) {
         next();
     } else {
