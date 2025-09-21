@@ -82,15 +82,17 @@ public class MonitoringBackgroundService : BackgroundService
 
             foreach (var user in users)
             {
-                foreach (var site in user.Sites.ToList()) // ToList() защитит от изменений во время итерации
+                foreach (var site in user.Sites.ToList())
                 {
-                    // Проверка, что сайт ещё существует в БД
+                    // Получаем сайт напрямую из БД, чтобы EF точно знал его Id
                     var dbSite = await _db.WebSites
                         .Include(s => s.WebSiteData)
                         .Include(s => s.TestsData)
+                        .Include(s => s.TestScenarios)
                         .FirstOrDefaultAsync(s => s.Id == site.Id, stoppingToken);
 
-                    if (dbSite == null) continue; // сайт удалён, пропускаем
+                    if (dbSite == null)
+                        continue; // сайт удалён, пропускаем
 
                     var data = new WebSiteData
                     {
@@ -180,7 +182,7 @@ public class MonitoringBackgroundService : BackgroundService
                         dbSite.IsAvailable = false;
                     }
 
-                    // Сохраняем проверку сайта
+                    // Добавляем данные о проверке сайта
                     _db.WebSiteData.Add(data);
                     dbSite.TotalErrors = dbSite.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
                     await _db.SaveChangesAsync(stoppingToken);
