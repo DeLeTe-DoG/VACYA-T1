@@ -1,7 +1,7 @@
 <template>
   <div class="profile">
     <h2>Мой профиль</h2>
-    {{ userData }}    
+    <!-- {{ userData }}     -->
     <div v-if="userData" class="user-info">
       <div v-if="userData.name" class="info-item">
         <span class="label">Имя:</span>
