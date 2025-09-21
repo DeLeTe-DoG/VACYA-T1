@@ -29,7 +29,7 @@ export const sitesModule = {
     actions: {
         getSites({state, commit}, data) {
             console.log(JSON.parse(localStorage.getItem('userData')))
-            axios
+            return axios
                 .get(`${api}/api/user/${JSON.parse(localStorage.getItem('userData')).name}/sites/`, {
                     headers: {
                         Authorization: `Bearer ${localStorage.getItem('token')}`,

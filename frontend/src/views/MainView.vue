@@ -440,7 +440,11 @@ export default {
   },
   mounted() {
     this.token = localStorage.getItem("token");
-    this.getSites();
+    this.getSites().then(() => {
+      if(this.sites.length == 0) {
+        this.$router.push('/add-site')
+      }
+    });
     this.activeSite = this.$route.query.project;
   },
   watch: {
