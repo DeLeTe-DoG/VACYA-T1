@@ -19,10 +19,11 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://localhost:5046",
-                "https://vacya.netlify.app"
+                "https://vacya.netlify.app/"
             )
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .WithExposedHeaders("Authorization");
     });
 });
 
