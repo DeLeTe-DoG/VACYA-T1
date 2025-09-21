@@ -21,10 +21,11 @@
     appearance: none;
     box-shadow: none;
 }
-.edit-btn{
+.delete-btn{
     border: none;
     outline: none;
     background: transparent;
+    cursor: pointer;
 }
 .textarea-wrapper{
     width: 100%;

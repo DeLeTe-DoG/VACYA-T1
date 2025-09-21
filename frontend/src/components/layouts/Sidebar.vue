@@ -127,7 +127,7 @@ export default {
         {
           id: 1,
           title: "Дашборд",
-          href: `/dashboard/`,
+          href: `/dashboard`,
           family: "dashboard",
         },
         {

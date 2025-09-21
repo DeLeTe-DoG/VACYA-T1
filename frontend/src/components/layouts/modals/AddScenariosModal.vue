@@ -17,6 +17,17 @@
               v-model="scenariosBody.name"
             />
           </label>
+          <label for="requestPath">
+            Адрес API:
+            <input
+              class="main-input"
+              type="text"
+              name="requestPath"
+              id="requestPath"
+              placeholder="Введите имя сайта"
+              v-model="scenariosBody.apiPath"
+            />
+          </label>
           <label for="requestMethod">
             Метод запроса:
             <input
@@ -53,45 +64,64 @@
             />
           </label>
           <label for="requestJSON" class="checkbox-label">
-            <input type="checkbox" name="requestJSON" id="requestJSON" v-model="scenariosBody.checkJSON" />
+            <input
+              type="checkbox"
+              name="requestJSON"
+              id="requestJSON"
+              v-model="scenariosBody.checkJSON"
+            />
             Проверка JSON
           </label>
           <label for="requestXML" class="checkbox-label">
-            <input type="checkbox" name="requestXML" id="requestXML" v-model="scenariosBody.checkXML" />
+            <input
+              type="checkbox"
+              name="requestXML"
+              id="requestXML"
+              v-model="scenariosBody.checkXML"
+            />
             Проверка XML
           </label>
         </form>
-        <main-button @click="addScenarios([$route.query.project, scenariosBody])">Сохранить</main-button>
+        <main-button @click="handleScenarios">Сохранить</main-button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { mapActions } from 'vuex'
+import { mapActions } from "vuex";
 export default {
   data() {
     return {
       isActiveModal: false,
       scenariosBody: {
-        name: "test scen",
-        httpMethod: "GET",
-        body: "url: 'https://vacya.netlify.app'",
-        checkXML: true,
-        checkJSON: true,
-        expectedContent: "OK",
+        apiPath: '',
+        name: "",
+        httpMethod: "",
+        body: "",
+        checkXML: false,
+        checkJSON: false,
+        expectedContent: "",
       },
     };
   },
   methods: {
     ...mapActions({
-        addScenarios: 'sites/addScenarios'
+      addScenarios: "sites/addScenarios",
+      getSites: "sites/getSites",
     }),
     openModule() {
       this.isActiveModal = true;
     },
     closeModal() {
       this.isActiveModal = false;
+    },
+    handleScenarios() {
+      this.addScenarios([this.$route.query.project, this.scenariosBody]);
+      setTimeout(() => {
+        this.closeModal();
+        this.getSites()
+      }, 2000);
     },
   },
 };

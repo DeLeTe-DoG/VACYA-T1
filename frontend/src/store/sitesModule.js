@@ -29,14 +29,19 @@ export const sitesModule = {
     actions: {
         getSites({state, commit}, data) {
             console.log(JSON.parse(localStorage.getItem('userData')))
-            return axios
-                .get(`${api}/api/user/${JSON.parse(localStorage.getItem('userData')).name}/sites`, {
+            axios
+                .get(`${api}/api/user/${JSON.parse(localStorage.getItem('userData')).name}/sites/`, {
                     headers: {
                         Authorization: `Bearer ${localStorage.getItem('token')}`,
+                        "Content-Type": "application/json"
                     }
                 })
                 .then(response => {
                     console.log(response.data)
+                    // if(response.data.length == 0) {
+                    //     router.push('/')
+                    //     return
+                    // }
                     commit('setSites', response.data)
                     if(!response.data) {
                         localStorage.removeItem('token')
@@ -67,6 +72,31 @@ export const sitesModule = {
                 .then(response => {
                     console.log(response)
                 })
-        }
+        },
+        deleteScenarios({state, commit, dispatch}, data) {
+            const site_name = state.sites.find(site => site.id == data[0]).name
+            axios
+                .delete(`${api}/api/user/${JSON.parse(localStorage.getItem('userData')).name}/sites/${site_name}/scenarios/${data[1]}`, {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('token')}`
+                    }
+                })
+                .then(response => {
+                    console.log(response)
+                    // dispatch('getSites')
+                })
+        },
+        deleteSite({state, commit}, data) {
+            axios
+                .delete(`${api}/api/user/${JSON.parse(localStorage.getItem('userData')).name}/sites/${data}`, {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem('token')}`
+                    }
+                })
+                .then(response => {
+                    console.log(response)
+                    // dispatch('getSites')
+                })
+        },
     }
 }
