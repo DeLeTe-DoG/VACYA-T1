@@ -97,12 +97,13 @@ public class UserController : ControllerBase
             userName,
             siteName, 
             dto.Name,
-            dto.CheckXml,
             dto.HttpMethod,
             dto.Body,
             dto.Headers,
             dto.ExpectedContent,
-            dto.CheckJson
+            dto.CheckJson,
+            dto.CheckXml,
+            dto.ApiPath
         );
 
         if (!result.Success) 

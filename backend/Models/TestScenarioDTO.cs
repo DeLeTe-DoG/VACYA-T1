@@ -3,7 +3,7 @@ namespace backend.Models;
 public class TestScenarioDTO
 {
   //public string SiteId { get; set; }
-  public string Url { get; set; } = string.Empty;         
+  public string ApiPath { get; set; } = string.Empty;         
   public string Name { get; set; } = string.Empty;      
   public string HttpMethod { get; set; } = "GET";    
   public Dictionary<string, string>? Headers { get; set; } 

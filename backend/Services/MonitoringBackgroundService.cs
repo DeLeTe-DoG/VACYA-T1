@@ -84,7 +84,6 @@ public class MonitoringBackgroundService : BackgroundService
             {
                 foreach (var site in user.Sites.ToList())
                 {
-                    // Получаем сайт напрямую из БД, чтобы EF точно знал его Id
                     var dbSite = await _db.WebSites
                         .Include(s => s.WebSiteData)
                         .Include(s => s.TestsData)
@@ -92,7 +91,7 @@ public class MonitoringBackgroundService : BackgroundService
                         .FirstOrDefaultAsync(s => s.Id == site.Id, stoppingToken);
 
                     if (dbSite == null)
-                        continue; // сайт удалён, пропускаем
+                        continue;
 
                     var data = new WebSiteData
                     {
@@ -101,7 +100,7 @@ public class MonitoringBackgroundService : BackgroundService
                         WebSiteId = dbSite.Id
                     };
 
-                    // 1. Проверка корректности URL
+                    // Проверка URL
                     if (!Uri.TryCreate(dbSite.URL, UriKind.Absolute, out var uri))
                     {
                         data.StatusCode = 0;
@@ -115,7 +114,7 @@ public class MonitoringBackgroundService : BackgroundService
 
                     try
                     {
-                        // 2. Проверка DNS
+                        // Проверка DNS
                         if (!CheckDNS(uri.Host))
                         {
                             data.StatusCode = 0;
@@ -129,7 +128,7 @@ public class MonitoringBackgroundService : BackgroundService
                         }
                         dbSite.DNS = "OK";
 
-                        // 3. Проверка SSL
+                        // Проверка SSL
                         bool sslOk = uri.Scheme == Uri.UriSchemeHttps ? CheckSslCertificate(uri.Host) : true;
                         if (!sslOk)
                         {
@@ -144,7 +143,7 @@ public class MonitoringBackgroundService : BackgroundService
                         }
                         dbSite.SSL = "OK";
 
-                        // 4. HTTP-запрос
+                        // HTTP-запрос
                         var stopwatch = Stopwatch.StartNew();
                         var response = await client.GetAsync(uri, stoppingToken);
                         stopwatch.Stop();
@@ -162,11 +161,10 @@ public class MonitoringBackgroundService : BackgroundService
                             data.ErrorMessage = response.ReasonPhrase ?? $"HTTP Error {data.StatusCode}";
                         }
 
-                        // 5. Проверка содержимого
+                        // Проверка контента
                         if (!string.IsNullOrWhiteSpace(dbSite.ExpectedContent))
                         {
-                            var bytes = await response.Content.ReadAsByteArrayAsync(stoppingToken);
-                            var content = Encoding.UTF8.GetString(bytes);
+                            var content = await response.Content.ReadAsStringAsync(stoppingToken);
 
                             if (!content.Contains(dbSite.ExpectedContent, StringComparison.OrdinalIgnoreCase))
                             {
@@ -182,26 +180,15 @@ public class MonitoringBackgroundService : BackgroundService
                         dbSite.IsAvailable = false;
                     }
 
-                    // Добавляем данные о проверке сайта
+                    // Сохраняем данные проверки сайта
                     _db.WebSiteData.Add(data);
                     dbSite.TotalErrors = dbSite.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
                     await _db.SaveChangesAsync(stoppingToken);
 
-                    // 6. Запуск тестовых сценариев
+                    // Запуск тестовых сценариев по ID
                     foreach (var scenario in dbSite.TestScenarios ?? Enumerable.Empty<TestScenario>())
                     {
-                        var scenarioDto = new backend.Models.TestScenarioDTO
-                        {
-                            Name = scenario.Name,
-                            Url = scenario.Url,
-                            HttpMethod = scenario.HttpMethod,
-                            Body = scenario.Body,
-                            ExpectedContent = scenario.ExpectedContent,
-                            CheckJson = scenario.CheckJson,
-                            CheckXml = scenario.CheckXml
-                        };
-
-                        var resultDto = await _testService.RunScenarioAsync(scenarioDto);
+                        var resultDto = await _testService.RunScenarioAsync(scenario.Id);
 
                         var resultEntity = new ScenarioResult
                         {

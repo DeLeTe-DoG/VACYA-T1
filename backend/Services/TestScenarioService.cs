@@ -4,19 +4,40 @@ using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
 using backend.Models;
+using backend.Data;
+using backend.Entities;
+using Microsoft.EntityFrameworkCore;
 
 public class TestScenarioService
 {
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly AppDbContext _db;
 
-    public TestScenarioService(IHttpClientFactory httpClientFactory)
+    public TestScenarioService(IHttpClientFactory httpClientFactory, AppDbContext db)
     {
         _httpClientFactory = httpClientFactory;
+        _db = db;
     }
 
-    public async Task<ScenarioResultDTO> RunScenarioAsync(TestScenarioDTO scenario)
+    public async Task<ScenarioResultDTO> RunScenarioAsync(int scenarioId)
     {
+        // Получаем сценарий из базы
+        var scenario = await _db.TestScenarios
+            .Include(s => s.WebSite)
+            .FirstOrDefaultAsync(s => s.Id == scenarioId);
+
+        if (scenario == null)
+            return new ScenarioResultDTO
+            {
+                Id = $"NOTFOUND/{Guid.NewGuid()}",
+                Name = "Сценарий не найден",
+                LastChecked = DateTime.UtcNow,
+                StatusCode = 0,
+                ErrorMessage = "Сценарий не найден"
+            };
+
         var client = _httpClientFactory.CreateClient();
+
         var result = new ScenarioResultDTO
         {
             LastChecked = DateTime.UtcNow,
@@ -25,49 +46,58 @@ public class TestScenarioService
 
         try
         {
-            // Создаем HTTP-запрос
-            using var request = new HttpRequestMessage(new HttpMethod(scenario.HttpMethod), scenario.Url);
+            // Формируем полный URL: базовый URL сайта + путь API
+            var fullUrl = new Uri(new Uri(scenario.WebSite.URL), scenario.ApiPath);
 
-            // Добавляем заголовки (кроме Content-Type)
-            if (scenario.Headers != null)
+            using var request = new HttpRequestMessage(new HttpMethod(scenario.HttpMethod), fullUrl);
+
+            // Добавляем заголовки, кроме Content-Type
+            if (!string.IsNullOrEmpty(scenario.HeadersJson))
             {
-                foreach (var header in scenario.Headers)
+                var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(scenario.HeadersJson);
+                if (headers != null)
                 {
-                    if (header.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
-                        continue; // Content-Type добавим ниже, если есть тело
-
-                    // TryAddWithoutValidation — чтобы не падало на "нестандартных" заголовках
-                    request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                    foreach (var header in headers)
+                    {
+                        if (header.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                    }
                 }
             }
 
-            // Если есть тело запроса — добавляем его и Content-Type
+            // Если есть тело запроса
             if (!string.IsNullOrEmpty(scenario.Body))
             {
                 var content = new StringContent(scenario.Body, Encoding.UTF8);
 
-                // Устанавливаем Content-Type, если указан явно в Headers
-                if (scenario.Headers != null && 
-                    scenario.Headers.TryGetValue("Content-Type", out var contentType))
+                if (!string.IsNullOrEmpty(scenario.HeadersJson))
                 {
-                    content.Headers.ContentType = 
-                        new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+                    var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(scenario.HeadersJson);
+                    if (headers != null && headers.TryGetValue("Content-Type", out var contentType))
+                    {
+                        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+                    }
+                    else
+                    {
+                        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+                    }
                 }
                 else
                 {
-                    content.Headers.ContentType = 
-                        new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+                    content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
                 }
 
                 request.Content = content;
             }
 
-            // Засекаем время отклика
+            // Отправляем запрос и замеряем время
             var stopwatch = Stopwatch.StartNew();
             var response = await client.SendAsync(request);
             stopwatch.Stop();
 
             result.StatusCode = (int)response.StatusCode;
+            result.ResponseTime = $"{stopwatch.ElapsedMilliseconds} ms";
             result.Id = $"{result.StatusCode}/TEST/{Guid.NewGuid()}";
 
             var contentString = await response.Content.ReadAsStringAsync();
@@ -82,15 +112,27 @@ public class TestScenarioService
             // Проверка JSON
             if (scenario.CheckJson)
             {
-                try { JsonDocument.Parse(contentString); }
-                catch { result.ErrorMessage = "Некорректный JSON"; }
+                try
+                {
+                    JsonDocument.Parse(contentString);
+                }
+                catch
+                {
+                    result.ErrorMessage = "Некорректный JSON";
+                }
             }
 
             // Проверка XML
             if (scenario.CheckXml)
             {
-                try { XDocument.Parse(contentString); }
-                catch { result.ErrorMessage = "Некорректный XML"; }
+                try
+                {
+                    XDocument.Parse(contentString);
+                }
+                catch
+                {
+                    result.ErrorMessage = "Некорректный XML";
+                }
             }
         }
         catch (Exception ex)
@@ -102,5 +144,4 @@ public class TestScenarioService
 
         return result;
     }
-
 }

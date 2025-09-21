@@ -47,23 +47,25 @@ namespace backend.Entities
         public int WebSiteId { get; set; }
         public WebSite WebSite { get; set; }
     }
-
+    
     public class TestScenario
     {
         [Key]
         public int Id { get; set; }
         public string Name { get; set; } = "";
-        public string Url { get; set; } = "";
+        public string Url { get; set; } = "";       // полный URL для запроса (генерируется сервером)
+        public string ApiPath { get; set; } = "";   // путь, который вводит пользователь
         public string HttpMethod { get; set; } = "GET";
         public string? Body { get; set; }
         public string? ExpectedContent { get; set; }
         public bool CheckJson { get; set; } = false;
         public bool CheckXml { get; set; } = false;
         public string? HeadersJson { get; set; }
-
+    
         public int WebSiteId { get; set; }
         public WebSite WebSite { get; set; }
     }
+
 
     public class ScenarioResult
     {

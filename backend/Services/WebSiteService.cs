@@ -53,7 +53,6 @@ public class WebsiteService
             TestScenarios = s.TestScenarios.Select(t => new TestScenarioDTO
             {
                 Name = t.Name,
-                Url = t.Url,
                 HttpMethod = t.HttpMethod,
                 Body = t.Body,
                 Headers = string.IsNullOrEmpty(t.HeadersJson)
@@ -154,12 +153,13 @@ public class WebsiteService
         string userName,
         string siteName,
         string name,
-        bool checkXml,
         string httpMethod,
         string? body,
         Dictionary<string, string>? headers,
         string? expectedContent,
-        bool checkJson
+        bool checkJson,
+        bool checkXml,
+        string apiPath   // <- получаем от пользователя
     )
     {
         // Ищем пользователя
@@ -167,13 +167,11 @@ public class WebsiteService
             .Include(u => u.Sites)
             .FirstOrDefaultAsync(u => u.Name == userName);
 
-        if (user == null)
-            return (false, "Пользователь не найден", null);
+        if (user == null) return (false, "Пользователь не найден", null);
 
         // Ищем сайт пользователя
         var site = user.Sites.FirstOrDefault(s => s.Name == siteName);
-        if (site == null)
-            return (false, "Сайт не найден", null);
+        if (site == null) return (false, "Сайт не найден", null);
 
         // Сериализация Headers в JSON
         var headersJson = headers != null
@@ -182,14 +180,14 @@ public class WebsiteService
 
         var scenario = new TestScenario
         {
-            Url = site.URL,
             Name = name,
-            CheckXml = checkXml,
+            ApiPath = apiPath,          // <- сохраняем путь в базу
             HttpMethod = httpMethod,
             Body = body,
             HeadersJson = headersJson,
             ExpectedContent = expectedContent,
             CheckJson = checkJson,
+            CheckXml = checkXml,
             WebSiteId = site.Id
         };
 
@@ -199,20 +197,21 @@ public class WebsiteService
         // Маппинг обратно в DTO
         var scenarioDto = new TestScenarioDTO
         {
-            //SiteId = site.Id.ToString(),
             Name = scenario.Name,
-            CheckXml = scenario.CheckXml,
+            ApiPath = scenario.ApiPath,   // <- возвращаем пользователю
             HttpMethod = scenario.HttpMethod,
             Body = scenario.Body,
             Headers = !string.IsNullOrEmpty(scenario.HeadersJson)
                 ? JsonSerializer.Deserialize<Dictionary<string, string>>(scenario.HeadersJson)
                 : new Dictionary<string, string>(),
             ExpectedContent = scenario.ExpectedContent,
-            CheckJson = scenario.CheckJson
+            CheckJson = scenario.CheckJson,
+            CheckXml = scenario.CheckXml
         };
 
         return (true, "Сценарий добавлен", scenarioDto);
     }
+
 
     public async Task<List<WebSiteDTO>> FilterByDateAsync(int userId, DateTime dateFrom, DateTime dateTo)
     {
