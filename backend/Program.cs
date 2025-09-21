@@ -15,11 +15,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Добавление сервисов
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.WithOrigins(
+                "http://localhost:5046",
+                "https://vacya.netlify.app"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
@@ -61,7 +64,7 @@ var app = builder.Build();
 app.UseRouting();
 
 // CORS должен быть до аутентификации и авторизации
-app.UseCors("AllowAll");
+app.UseCors("AllowFrontend");
 
 // Аутентификация и авторизация
 app.UseAuthentication();
