@@ -181,12 +181,13 @@ View And Check Your Apps
 ### *Тело запроса*
 ```json
 {
-  "name": "Login test",
+  "name": "Login test2",
   "checkXml": false,
   "httpMethod": "POST",
   "body": "{ \"username\": \"admin\", \"password\": \"1234\" }",
   "expectedContent": "Welcome, admin",
-  "checkJson": true
+  "checkJson": true,
+  "ApiPath": "api/user/a"
 }
 
 ```
