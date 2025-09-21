@@ -24,7 +24,8 @@ public class WebsiteService
                 .ThenInclude(s => s.TestsData)
             .FirstOrDefaultAsync(u => u.Name == userName);
 
-        if (user == null) return new List<WebSiteDTO>();
+        if (user == null)
+            return new List<WebSiteDTO>();
 
         return user.Sites.Select(s => new WebSiteDTO
         {
@@ -37,25 +38,15 @@ public class WebsiteService
             DNS = s.DNS ?? "",
             SSL = s.SSL ?? "",
             TotalErrors = s.WebSiteData.Count(d => !string.IsNullOrWhiteSpace(d.ErrorMessage)),
+
             WebSiteData = s.WebSiteData.Select(d => new WebSiteDataDTO
             {
                 Id = d.Id,
-                LastChecked = d.LastChecked,
                 StatusCode = d.StatusCode,
-                ErrorMessage = d.ErrorMessage
+                ErrorMessage = d.ErrorMessage,
+                LastChecked = d.LastChecked
             }).ToList(),
-            TestScenarios = s.TestScenarios.Select(t => new TestScenarioDTO
-            {
-                Name = t.Name,
-                HttpMethod = t.HttpMethod,
-                Body = t.Body,
-                Headers = string.IsNullOrEmpty(t.HeadersJson)
-                    ? new Dictionary<string, string>()
-                    : JsonSerializer.Deserialize<Dictionary<string, string>>(t.HeadersJson),
-                ExpectedContent = t.ExpectedContent,
-                CheckJson = t.CheckJson,
-                CheckXml = t.CheckXml
-            }).ToList(),
+
             TestsData = s.TestsData.Select(t => new ScenarioResultDTO
             {
                 Id = t.Id,
@@ -64,6 +55,20 @@ public class WebsiteService
                 ResponseTime = t.ResponseTime,
                 ErrorMessage = t.ErrorMessage,
                 LastChecked = t.LastChecked
+            }).ToList(),
+
+            TestScenarios = s.TestScenarios.Select(t => new TestScenarioDTO
+            {
+                Name = t.Name,
+                ApiPath = t.ApiPath, // теперь ApiPath заполняется
+                HttpMethod = t.HttpMethod,
+                Body = t.Body,
+                Headers = string.IsNullOrEmpty(t.HeadersJson)
+                    ? new Dictionary<string, string>()
+                    : JsonSerializer.Deserialize<Dictionary<string, string>>(t.HeadersJson),
+                ExpectedContent = t.ExpectedContent,
+                CheckJson = t.CheckJson,
+                CheckXml = t.CheckXml
             }).ToList()
         }).ToList();
     }
