@@ -61,6 +61,7 @@ public class MonitoringBackgroundService : BackgroundService
         }
     }
 
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var client = _httpClientFactory.CreateClient();
@@ -71,143 +72,134 @@ public class MonitoringBackgroundService : BackgroundService
             var _db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var _testService = scope.ServiceProvider.GetRequiredService<TestScenarioService>();
 
-            var users = await _db.Users
-                .Include(u => u.Sites)
-                    .ThenInclude(s => s.TestScenarios)
-                .Include(u => u.Sites)
-                    .ThenInclude(s => s.WebSiteData)
-                .Include(u => u.Sites)
-                    .ThenInclude(s => s.TestsData)
-                .ToListAsync(stoppingToken);
-
-            foreach (var user in users)
+            try
             {
-                foreach (var site in user.Sites.ToList())
+                // Пакетная загрузка пользователей
+                const int batchSize = 50;
+                int skip = 0;
+                List<User> usersBatch;
+
+                do
                 {
-                    var dbSite = await _db.WebSites
-                        .Include(s => s.WebSiteData)
-                        .Include(s => s.TestsData)
-                        .Include(s => s.TestScenarios)
-                        .FirstOrDefaultAsync(s => s.Id == site.Id, stoppingToken);
+                    usersBatch = await _db.Users
+                        .Include(u => u.Sites)
+                            .ThenInclude(s => s.TestScenarios)
+                        .Include(u => u.Sites)
+                            .ThenInclude(s => s.WebSiteData)
+                        .Include(u => u.Sites)
+                            .ThenInclude(s => s.TestsData)
+                        .AsNoTracking()
+                        .Skip(skip)
+                        .Take(batchSize)
+                        .ToListAsync(stoppingToken);
 
-                    if (dbSite == null)
-                        continue;
+                    skip += batchSize;
 
-                    var data = new WebSiteData
+                    foreach (var user in usersBatch)
                     {
-                        Id = Guid.NewGuid().ToString(),
-                        LastChecked = DateTime.UtcNow,
-                        WebSiteId = dbSite.Id
-                    };
-
-                    // Проверка URL
-                    if (!Uri.TryCreate(dbSite.URL, UriKind.Absolute, out var uri))
-                    {
-                        data.StatusCode = 0;
-                        data.ErrorMessage = "Некорректный URL";
-                        dbSite.IsAvailable = false;
-
-                        _db.WebSiteData.Add(data);
-                        await _db.SaveChangesAsync(stoppingToken);
-                        continue;
-                    }
-
-                    try
-                    {
-                        // Проверка DNS
-                        if (!CheckDNS(uri.Host))
+                        foreach (var site in user.Sites)
                         {
-                            data.StatusCode = 0;
-                            data.ErrorMessage = "DNS не найден";
-                            dbSite.IsAvailable = false;
-                            dbSite.DNS = "DNS не найден";
+                            var dbSite = await _db.WebSites
+                                .Include(s => s.WebSiteData)
+                                .Include(s => s.TestsData)
+                                .Include(s => s.TestScenarios)
+                                .FirstOrDefaultAsync(s => s.Id == site.Id, stoppingToken);
 
-                            _db.WebSiteData.Add(data);
-                            await _db.SaveChangesAsync(stoppingToken);
-                            continue;
-                        }
-                        dbSite.DNS = "OK";
+                            if (dbSite == null) continue;
 
-                        // Проверка SSL
-                        bool sslOk = uri.Scheme == Uri.UriSchemeHttps ? CheckSslCertificate(uri.Host) : true;
-                        if (!sslOk)
-                        {
-                            data.StatusCode = 0;
-                            data.ErrorMessage = "SSL сертификат недействителен";
-                            dbSite.IsAvailable = false;
-                            dbSite.SSL = "Сертификат недействителен";
-
-                            _db.WebSiteData.Add(data);
-                            await _db.SaveChangesAsync(stoppingToken);
-                            continue;
-                        }
-                        dbSite.SSL = "OK";
-
-                        // HTTP-запрос
-                        var stopwatch = Stopwatch.StartNew();
-                        var response = await client.GetAsync(uri, stoppingToken);
-                        stopwatch.Stop();
-
-                        dbSite.ResponseTime = $"{stopwatch.ElapsedMilliseconds} ms";
-                        data.StatusCode = (int)response.StatusCode;
-
-                        if (response.IsSuccessStatusCode)
-                        {
-                            dbSite.IsAvailable = true;
-                        }
-                        else
-                        {
-                            dbSite.IsAvailable = false;
-                            data.ErrorMessage = response.ReasonPhrase ?? $"HTTP Error {data.StatusCode}";
-                        }
-
-                        // Проверка контента
-                        if (!string.IsNullOrWhiteSpace(dbSite.ExpectedContent))
-                        {
-                            var content = await response.Content.ReadAsStringAsync(stoppingToken);
-
-                            if (!content.Contains(dbSite.ExpectedContent, StringComparison.OrdinalIgnoreCase))
+                            var data = new WebSiteData
                             {
-                                data.ErrorMessage = "Ожидаемый контент не найден";
+                                Id = Guid.NewGuid().ToString(),
+                                LastChecked = DateTime.UtcNow,
+                                WebSiteId = dbSite.Id
+                            };
+
+                            try
+                            {
+                                if (!Uri.TryCreate(dbSite.URL, UriKind.Absolute, out var uri))
+                                    throw new Exception("Некорректный URL");
+
+                                // DNS
+                                if (!CheckDNS(uri.Host)) throw new Exception("DNS не найден");
+                                dbSite.DNS = "OK";
+
+                                // SSL
+                                if (uri.Scheme == Uri.UriSchemeHttps && !CheckSslCertificate(uri.Host))
+                                    throw new Exception("SSL сертификат недействителен");
+                                dbSite.SSL = "OK";
+
+                                // HTTP запрос
+                                var stopwatch = Stopwatch.StartNew();
+                                var response = await client.GetAsync(uri, stoppingToken);
+                                stopwatch.Stop();
+
+                                dbSite.ResponseTime = $"{stopwatch.ElapsedMilliseconds} ms";
+                                data.StatusCode = (int)response.StatusCode;
+
+                                if (!response.IsSuccessStatusCode)
+                                    data.ErrorMessage = response.ReasonPhrase ?? $"HTTP Error {data.StatusCode}";
+
+                                // Проверка контента
+                                if (!string.IsNullOrWhiteSpace(dbSite.ExpectedContent))
+                                {
+                                    var content = await response.Content.ReadAsStringAsync(stoppingToken);
+                                    if (!content.Contains(dbSite.ExpectedContent, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        data.ErrorMessage = "Ожидаемый контент не найден";
+                                        dbSite.IsAvailable = false;
+                                    }
+                                }
+
+                                dbSite.IsAvailable = string.IsNullOrWhiteSpace(data.ErrorMessage);
+                            }
+                            catch (Exception ex)
+                            {
+                                data.StatusCode = 0;
+                                data.ErrorMessage = ex.Message;
                                 dbSite.IsAvailable = false;
                             }
+
+                            _db.WebSiteData.Add(data);
+                            dbSite.TotalErrors = dbSite.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
+                            await _db.SaveChangesAsync(stoppingToken);
+
+                            // Тестовые сценарии
+                            foreach (var scenario in dbSite.TestScenarios ?? Enumerable.Empty<TestScenario>())
+                            {
+                                try
+                                {
+                                    var resultDto = await _testService.RunScenarioAsync(scenario.Id);
+
+                                    var resultEntity = new ScenarioResult
+                                    {
+                                        Id = Guid.NewGuid().ToString(),
+                                        Name = resultDto.Name,
+                                        StatusCode = resultDto.StatusCode,
+                                        ResponseTime = resultDto.ResponseTime,
+                                        ErrorMessage = resultDto.ErrorMessage,
+                                        LastChecked = DateTime.UtcNow,
+                                        WebSiteId = dbSite.Id
+                                    };
+
+                                    dbSite.TestsData.Add(resultEntity);
+                                    _db.ScenarioResults.Add(resultEntity);
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Логируем, но продолжаем
+                                    Console.WriteLine($"Ошибка теста {scenario.Id}: {ex.Message}");
+                                }
+                            }
+
+                            await _db.SaveChangesAsync(stoppingToken);
+                            await Task.Delay(500, stoppingToken);
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        data.StatusCode = 0;
-                        data.ErrorMessage = ex.Message;
-                        dbSite.IsAvailable = false;
-                    }
-
-                    // Сохраняем данные проверки сайта
-                    _db.WebSiteData.Add(data);
-                    dbSite.TotalErrors = dbSite.WebSiteData.Count(e => !string.IsNullOrWhiteSpace(e.ErrorMessage));
-                    await _db.SaveChangesAsync(stoppingToken);
-
-                    // Запуск тестовых сценариев по ID
-                    foreach (var scenario in dbSite.TestScenarios ?? Enumerable.Empty<TestScenario>())
-                    {
-                        var resultDto = await _testService.RunScenarioAsync(scenario.Id);
-
-                        var resultEntity = new ScenarioResult
-                        {
-                            Id = Guid.NewGuid().ToString(),
-                            Name = resultDto.Name,
-                            StatusCode = resultDto.StatusCode,
-                            ResponseTime = resultDto.ResponseTime,
-                            ErrorMessage = resultDto.ErrorMessage,
-                            LastChecked = DateTime.UtcNow,
-                            WebSiteId = dbSite.Id
-                        };
-
-                        dbSite.TestsData.Add(resultEntity);
-                        _db.ScenarioResults.Add(resultEntity);
-                    }
-
-                    await _db.SaveChangesAsync(stoppingToken);
-                    await Task.Delay(500, stoppingToken);
-                }
+                } while (usersBatch.Count > 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка BackgroundService: {ex.Message}");
             }
 
             await Task.Delay(5000, stoppingToken);
