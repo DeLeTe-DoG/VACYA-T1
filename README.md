@@ -37,6 +37,38 @@ dotnet ef database update # Применение миграцие
 ```bash
 dotnet build && dotnet run
 ```
+
+
+### Вариант сборки сервера через `Docker`
+1. Сборка образа
+```bash
+# Из директории с Dockerfile
+docker build -t backend-app:latest .
+```
+2.  Запуск контейнера
+```bash
+# Базовый запуск
+docker run -d -p 8080:8080 --name my-backend backend-app:latest
+
+# С пробросом порта и переменными окружения
+docker run -d \
+  -p 8080:8080 \
+  -p 443:443 \
+  --name backend-container \
+  backend-app:latest
+```
+3. Проверка работы
+```bash
+# Проверить логи
+docker logs backend-container
+
+# Проверить статус контейнера
+docker ps
+
+# Тестирование (если приложение запущено)
+curl http://localhost:8080
+```
+
 ### Настройка фронтенда
 1. Перейдите в папку фронтенда
 ```bash
@@ -423,4 +455,6 @@ npm run dev
 - `400 Bad Request` — сценарий не найден
 
 ##
+
+
 
