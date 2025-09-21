@@ -13,7 +13,6 @@ public class WebsiteService
         _db = db;
     }
 
-    // Получить все сайты пользователя
     public async Task<List<WebSiteDTO>> GetAllAsync(string userName)
     {
         var user = await _db.Users
@@ -33,22 +32,17 @@ public class WebsiteService
             Name = s.Name,
             URL = s.URL,
             ExpectedContent = s.ExpectedContent,
-            TotalErrors = s.WebSiteData.Count(d => !string.IsNullOrEmpty(d.ErrorMessage)),
+            ResponseTime = s.ResponseTime ?? "",
+            IsAvailable = s.IsAvailable,
+            DNS = s.DNS ?? "",
+            SSL = s.SSL ?? "",
+            TotalErrors = s.WebSiteData.Count(d => !string.IsNullOrWhiteSpace(d.ErrorMessage)),
             WebSiteData = s.WebSiteData.Select(d => new WebSiteDataDTO
             {
                 Id = d.Id,
                 LastChecked = d.LastChecked,
                 StatusCode = d.StatusCode,
                 ErrorMessage = d.ErrorMessage
-            }).ToList(),
-            TestsData = s.TestsData.Select(t => new ScenarioResultDTO
-            {
-                Id = t.Id,
-                Name = t.Name,
-                StatusCode = t.StatusCode,
-                ResponseTime = t.ResponseTime,
-                ErrorMessage = t.ErrorMessage,
-                LastChecked = t.LastChecked
             }).ToList(),
             TestScenarios = s.TestScenarios.Select(t => new TestScenarioDTO
             {
@@ -61,6 +55,15 @@ public class WebsiteService
                 ExpectedContent = t.ExpectedContent,
                 CheckJson = t.CheckJson,
                 CheckXml = t.CheckXml
+            }).ToList(),
+            TestsData = s.TestsData.Select(t => new ScenarioResultDTO
+            {
+                Id = t.Id,
+                Name = t.Name,
+                StatusCode = t.StatusCode,
+                ResponseTime = t.ResponseTime,
+                ErrorMessage = t.ErrorMessage,
+                LastChecked = t.LastChecked
             }).ToList()
         }).ToList();
     }

@@ -46,8 +46,12 @@ namespace backend.Entities
 
         public int WebSiteId { get; set; }
         public WebSite WebSite { get; set; }
+
+        public string? DNS { get; set; }
+        public string? SSL { get; set; }
+        public string? ResponseTime { get; set; }
     }
-    
+
     public class TestScenario
     {
         [Key]
@@ -61,7 +65,7 @@ namespace backend.Entities
         public bool CheckJson { get; set; } = false;
         public bool CheckXml { get; set; } = false;
         public string? HeadersJson { get; set; }
-    
+
         public int WebSiteId { get; set; }
         public WebSite WebSite { get; set; }
     }
