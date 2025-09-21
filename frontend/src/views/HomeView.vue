@@ -3,7 +3,7 @@
         <div class="site-card" v-if="sites" v-for="site in sites" @click="openDashboard(site.id)">
             <h3 class="site-card__name">{{ site.name }}</h3>
             <p class="site-card__status" :style="{color: site.isAvailable ? '#site.isAvailable' : '#F62E2E'}">{{ site.isAvailable ? 'Доступен' : 'Не доступен' }}</p>
-            <h2 class="site-card__errors">{{ site.totalErrors }}</h2>
+            <h2 class="site-card__errors">{{ site.webSiteData.length + site.testsData.length }}</h2>
         </div>
         <button class="site-card add-card" @click="$router.push({ path: '/add-site' })">
             <span>+</span>
@@ -11,7 +11,10 @@
         </button>
     </div>
     <div class="charts-wrapper">
-        <MainChart v-for="site in sites" :chartData="site.webSiteData" />
+        <div class="charts-wrapper__block" v-if="sites" v-for="site in sites">
+            <h2 class="charts-wrapper__title" v-if="site.webSiteData.length != 0 || site.testsData.length != 0">{{ site.name }}</h2>
+            <MainChart :chartData="[site.webSiteData, site.testsData]" />
+        </div>
     </div>
 </template>
 
@@ -94,5 +97,8 @@
     .charts-wrapper{
         display: grid;
         grid-template-columns: repeat(2, 1fr);
+        h2{
+            margin-top: 40px;
+        }
     }
 </style>

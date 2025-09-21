@@ -74,14 +74,16 @@ const guard = function (to, from, next) {
     // if(to.meta.needProjectCheck) {
     //     let activeProject = store.state.sites.activeProject
     //     return next({query: { project: activeProject }})
-    let sites = store.state.sites.sites
-    setTimeout(() => {store.dispatch('sites/getSites').then(() => {
-        sites = store.state.sites.sites
-        console.log(sites.length)
-        if(sites.length == 0) {
-            router.push({path: '/add-site'})
-        }
-    })}, 500)
+    // setTimeout(() => {
+    //     sites = store.state.sites.sites
+    //     console.log(sites.length)
+    //     if(sites.length == 0) {
+    //         router.push({path: '/add-site'})
+    //     }
+    // }, 2000)
+    if(JSON.parse(localStorage.getItem('userData')).sites.length == 0) {
+        router.push({ path: '/add-site' })
+    }
     if(token) {
         next();
     } else {

@@ -36,7 +36,7 @@ import { sitesModule } from '../store/sitesModule';
                 siteData: {
                     url: '',
                     name: '',
-                    expectedContent: 'OK'
+                    expectedContent: ''
                 }
             }
         },

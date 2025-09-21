@@ -36,10 +36,45 @@
               {{ sites.find((site) => site.id == activeSite).responseTime }}
             </h2>
           </div>
+          <div
+            class="metric"
+            v-if="
+              sites && sites.find((site) => site.id == activeSite).dns
+            "
+          >
+            <div class="metric-wrapper">
+              <p class="metric__title">DNS</p>
+              <p class="metric__description">
+                Проверка наличия DNS
+              </p>
+            </div>
+            <h2 class="metric__value">
+              {{ sites.find((site) => site.id == activeSite).dns }}
+            </h2>
+          </div>
+          <div
+            class="metric"
+            v-if="
+              sites && sites.find((site) => site.id == activeSite).ssl
+            "
+          >
+            <div class="metric-wrapper">
+              <p class="metric__title">SSL</p>
+              <p class="metric__description">
+                Проверка наличия SSL
+              </p>
+            </div>
+            <h2 class="metric__value">
+              {{ sites.find((site) => site.id == activeSite).ssl }}
+            </h2>
+          </div>
         </div>
         <MainChart
           v-if="sites && activeSite"
-          :chartData="sites.find((site) => site.id == activeSite).webSiteData"
+          :chartData="[
+            sites.find((site) => site.id == activeSite).webSiteData,
+            sites.find((site) => site.id == activeSite).testsData,
+          ]"
         />
       </div>
     </div>
@@ -80,7 +115,15 @@
             v-for="site in sites"
             :class="site.id == activeSite ? 'active' : ''"
           >
-            <div class="choice-row__header" @click="handleActiveSite(site.id)">
+            <div
+              class="choice-row__header"
+              :style="{
+                backgroundColor: site.isAvailable
+                  ? ''
+                  : 'rgba(255, 0, 0, 0.29)',
+              }"
+              @click="handleActiveSite(site.id)"
+            >
               <div class="choice-row__wrapper">
                 <button
                   class="choice-row__open-btn"
@@ -112,17 +155,34 @@
                 ></div>
                 <p class="choice-row__name">{{ site.name }}</p>
               </div>
-              <button class="edit-btn">
+              <button class="delete-btn" @click="deleteSite(activeSite)">
                 <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                 >
                   <path
-                    d="M17.2266 2.30078L17.6992 2.77344C18.0664 3.14062 18.0664 3.73438 17.6992 4.09766L16.5625 5.23828L14.7617 3.4375L15.8984 2.30078C16.2656 1.93359 16.8594 1.93359 17.2227 2.30078H17.2266ZM8.19531 10.0078L13.4375 4.76172L15.2383 6.5625L9.99219 11.8047C9.87891 11.918 9.73828 12 9.58594 12.043L7.30078 12.6953L7.95312 10.4102C7.99609 10.2578 8.07812 10.1172 8.19141 10.0039L8.19531 10.0078ZM14.5742 0.976562L6.86719 8.67969C6.52734 9.01953 6.28125 9.4375 6.15234 9.89453L5.03516 13.8008C4.94141 14.1289 5.03125 14.4805 5.27344 14.7227C5.51562 14.9648 5.86719 15.0547 6.19531 14.9609L10.1016 13.8438C10.5625 13.7109 10.9805 13.4648 11.3164 13.1289L19.0234 5.42578C20.1211 4.32812 20.1211 2.54688 19.0234 1.44922L18.5508 0.976562C17.4531 -0.121094 15.6719 -0.121094 14.5742 0.976562ZM3.4375 2.5C1.53906 2.5 0 4.03906 0 5.9375V16.5625C0 18.4609 1.53906 20 3.4375 20H14.0625C15.9609 20 17.5 18.4609 17.5 16.5625V12.1875C17.5 11.668 17.082 11.25 16.5625 11.25C16.043 11.25 15.625 11.668 15.625 12.1875V16.5625C15.625 17.4258 14.9258 18.125 14.0625 18.125H3.4375C2.57422 18.125 1.875 17.4258 1.875 16.5625V5.9375C1.875 5.07422 2.57422 4.375 3.4375 4.375H7.8125C8.33203 4.375 8.75 3.95703 8.75 3.4375C8.75 2.91797 8.33203 2.5 7.8125 2.5H3.4375Z"
-                    fill="#969696"
+                    d="M18 5V19C18 19.5 17.5 20 17 20H12H7C6.5 20 6 19.5 6 19V5"
+                    stroke="#969696"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M4 5H20"
+                    stroke="#969696"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M10 4H14M10 9V16M14 9V16"
+                    stroke="#969696"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                   />
                 </svg>
               </button>
@@ -130,8 +190,39 @@
             <div class="choice-row__body" v-if="site.id == activeSite">
               <div class="choice-row__header">
                 <h5>Тесты API</h5>
-                <main-button class="small-btn" @click="$refs.addTestModal.openModule()">Добавить</main-button>
+                <main-button
+                  class="small-btn"
+                  @click="$refs.addTestModal.openModule()"
+                  >Добавить</main-button
+                >
               </div>
+              <ul
+                v-if="sites.find((site) => site.id == activeSite).testScenarios"
+                class="api-test-list"
+              >
+                <li
+                  v-for="scenarios in sites.find(
+                    (site) => site.id == activeSite
+                  ).testScenarios"
+                >
+                  <!-- {{ scenarios }} -->
+                  <div class="api-test__row">
+                    <h4 class="api-test__title">{{ scenarios.name }}</h4>
+                    <button class="delete-btn" @click="deleteScenarios([activeSite, scenarios.name])">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M18 5V19C18 19.5 17.5 20 17 20H12H7C6.5 20 6 19.5 6 19V5" stroke="#969696" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M4 5H20" stroke="#969696" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M10 4H14M10 9V16M14 9V16" stroke="#969696" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div class="api-test__row">
+                    <p class="api-test__method">{{ scenarios.httpMethod }}</p>
+                    <p v-if="scenarios.apiPath" class="api-test__adress">{{ scenarios.apiPath }}</p>
+                  </div>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
@@ -139,9 +230,9 @@
     </div>
     <div class="window">
       <div class="window__header">
-        <h2 class="window__title">История ошибок</h2>
+        <h2 class="window__title">История Проверок</h2>
       </div>
-      <div class="window__body">
+      <div class="window__body" :style="{ marginBottom: '50px' }">
         <div class="scroll-wrapper">
           <table v-if="sites && activeSite">
             <thead>
@@ -154,12 +245,91 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="sites" v-for="error in sites.find(site => site.id == activeSite).webSiteData">
+              <tr
+                v-if="sites && activeSite"
+                v-for="error in sites.find((site) => site.id == activeSite)
+                  .webSiteData"
+              >
                 <td>Работаспособность сайта</td>
-                <td class="status success">{{ error.statusCode }}</td>
+                <td
+                  class="status"
+                  :class="error.errorMessage ? 'error' : 'success'"
+                >
+                  {{ error.statusCode }}
+                </td>
+                <td>{{ error.errorMessage ? error.errorMessage : "-" }}</td>
+                <td>
+                  {{ error.lastChecked.split("T")[0] }}
+                  {{ error.lastChecked.split("T")[1].split(".")[0] }}
+                </td>
+                <td>{{ sites.find((site) => site.id == activeSite).url }}</td>
+              </tr>
+              <!-- <tr>
+                <td>Post-Get-Anal-Manal-Zaebal</td>
+                <td class="status error">Ошибка 304</td>
+                <td>Азат Сагдетдинов</td>
+                <td>20.09.2025 13:20:15</td>
+                <td>/IAmNotGood</td>
+              </tr>
+              <tr>
+                <td>Get</td>
+                <td class="status mega-error">Ошибка 404</td>
+                <td>Владислав Григорьев</td>
+                <td>20.09.2025 13:20:15</td>
+                <td>/BackSideMaster</td>
+              </tr> -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="window__header">
+        <h2 class="window__title">Ошибки тестов API</h2>
+      </div>
+      <div
+        class="window__body"
+        v-if="
+          sites &&
+          activeSite &&
+          sites.find((site) => site.id == activeSite).testsData[0]
+        "
+      >
+        <div class="scroll-wrapper">
+          <table v-if="sites && activeSite">
+            <thead>
+              <tr>
+                <th>Имя проверки</th>
+                <th>Статус</th>
+                <th>Имя</th>
+                <th>Дата и время</th>
+                <th>URL-адрес</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-if="sites.find((site) => site.id == activeSite).testsData[0]"
+                v-for="error in sites.find((site) => site.id == activeSite)
+                  .testsData"
+              >
+                <!-- {{ error }} -->
+                <td>{{ error.name }}</td>
+                <td
+                  class="status"
+                  :class="error.errorMessage ? 'error' : 'success'"
+                >
+                  {{ error.statusCode }}
+                </td>
                 <td>{{ error.errorMessage }}</td>
-                <td>{{ error.lastChecked.split('T')[0] }} {{ error.lastChecked.split('T')[1].split('.')[0] }}</td>
-                <td>{{ sites.find(site => site.id == activeSite).url }}</td>
+                <td>
+                  {{ error.lastChecked.split("T")[0] }}
+                  {{ error.lastChecked.split("T")[1].split(".")[0] }}
+                </td>
+                <td v-if="sites && sites.find((site) => site.id == activeSite).testScenarios.find((scen) => scen.name == error.name)">
+                  {{
+                    sites
+                      .find((site) => site.id == activeSite)
+                      .testScenarios.find((scen) => scen.name == error.name).apiPath
+                  }}
+                </td>
               </tr>
               <!-- <tr>
                 <td>Post-Get-Anal-Manal-Zaebal</td>
@@ -188,6 +358,7 @@
 import { mapActions, mapMutations, mapState } from "vuex/dist/vuex.cjs.js";
 import MainChart from "../components/layouts/main-page/MainChart.vue";
 import AddScenariosModal from "../components/layouts/modals/AddScenariosModal.vue";
+import { errorMessages } from "vue/compiler-sfc";
 
 export default {
   components: { MainChart, AddScenariosModal },
@@ -256,6 +427,8 @@ export default {
   methods: {
     ...mapActions({
       getSites: "sites/getSites",
+      deleteScenarios: 'sites/deleteScenarios',
+      deleteSite: 'sites/deleteSite',
     }),
     ...mapMutations({
       setActiveSite: "sites/setActiveSite",
@@ -353,19 +526,18 @@ th {
 }
 
 .metrics-cards {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   border-radius: 16px;
   padding: 10px;
-  background-color: #d9d9d9;
-  height: 200px;
+  background-color: #f5f5f5;
   .metric {
     width: 100%;
     background-color: #fff;
     padding: 20px 15px;
     border-radius: 12px;
-    height: 100%;
+    height: 180px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -424,6 +596,11 @@ th {
     justify-content: space-between;
     align-items: center;
     font-size: 20px;
+    padding: 5px;
+    border-radius: 4px;
+    &.error-site {
+      background-color: rgba(255, 0, 0, 0.29);
+    }
   }
   &__wrapper {
     display: flex;
@@ -444,6 +621,31 @@ th {
   }
   &__body {
     padding-top: 20px;
+    .api-test-list {
+      padding: 0;
+      list-style-type: none;
+      display: flex;
+      flex-direction: column;
+      // gap: 20px;
+      margin-top: 20px;
+      li {
+        padding: 10px 0;
+        border-top: 1px solid #969696;
+      }
+      .api-test {
+        &__title {
+          margin-bottom: 10px;
+        }
+        &__row {
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+        }
+        &__adress {
+          color: #969696;
+        }
+      }
+    }
   }
 }
 </style>

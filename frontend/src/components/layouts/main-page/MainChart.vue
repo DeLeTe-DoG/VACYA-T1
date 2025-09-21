@@ -107,10 +107,11 @@ export default {
     },
   },
   mounted() {
-    console.log(this.chartData);
-    this.chartOptions.series[0].data = [...this.sortByDate(this.chartData)];
+    console.log(this.chartData[0]);
+    this.chartOptions.series[0].data = [...this.sortByDate(this.chartData[0])];
+    this.chartOptions.series[1].data = [...this.sortByDate(this.chartData[1])];
     console.log(this.chartOptions.series[0].data);
-    this.chartOptions.xAxis.data = this.extractUniqueDates(this.chartData);
+    this.chartOptions.xAxis.data = this.extractUniqueDates(this.chartData[0]);
   },
   watch: {
     // chartData(newData) {
